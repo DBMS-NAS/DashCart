@@ -1,4 +1,4 @@
-asgiref==3.11.1
-Django==6.0.4
-PyMySQL==1.1.2
+Django==5.2.13
+djangorestframework==3.17.1
 sqlparse==0.5.5
+asgiref==3.8.1
