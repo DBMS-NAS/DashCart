@@ -1,3 +1,5 @@
+in progress...
+
 # DashCart
 
 DashCart is a Django + React database assignment project.
