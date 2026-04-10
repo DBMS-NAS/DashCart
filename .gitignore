@@ -3,14 +3,21 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.py[cod]
 
 # Django
 db.sqlite3
 *.log
+.env
 
 # Virtual Environment
 venv/
 env/
+.venv/
+
+# Frontend
+frontend/node_modules/
+frontend/build/
 
 # Mac
 .DS_Store
