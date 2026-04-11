@@ -1,0 +1,159 @@
+import { useEffect, useState } from "react";
+import axios from "axios";
+
+import { API_BASE_URL, authHeaders } from "../utils/api";
+
+function Cart() {
+  const [cart, setCart] = useState({ items: [], item_count: 0, total: "0.00" });
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadCart = async () => {
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/cart/`, {
+        headers: authHeaders(),
+      });
+      setCart(response.data);
+    } catch (err) {
+      setError("Could not load cart.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCart();
+  }, []);
+
+  const updateQuantity = async (itemId, quantity) => {
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await axios.patch(
+        `${API_BASE_URL}/api/cart/items/${itemId}/`,
+        { quantity },
+        { headers: authHeaders() }
+      );
+      setCart(response.data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not update cart item.");
+    }
+  };
+
+  const removeItem = async (itemId) => {
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await axios.delete(`${API_BASE_URL}/api/cart/items/${itemId}/`, {
+        headers: authHeaders(),
+      });
+      setCart(response.data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not remove cart item.");
+    }
+  };
+
+  const checkout = async () => {
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/cart/checkout/`,
+        {},
+        { headers: authHeaders() }
+      );
+
+      setCart(response.data.cart);
+      setMessage(`Order ${response.data.order_id} placed successfully.`);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not place order.");
+    }
+  };
+
+  if (isLoading) {
+    return <p className="text-slate-600">Loading cart...</p>;
+  }
+
+  return (
+    <div>
+      <h2 className="mb-6 text-3xl font-bold">Cart</h2>
+
+      {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
+      {message && <p className="mb-4 rounded bg-green-50 p-3 text-green-700">{message}</p>}
+
+      {cart.items.length === 0 ? (
+        <div className="rounded-lg bg-white p-6 shadow">
+          <p className="text-slate-600">Your cart is empty. Add products to begin checkout.</p>
+        </div>
+      ) : (
+        <>
+          <table className="w-full rounded-lg bg-white shadow">
+            <thead className="bg-gray-200">
+              <tr>
+                <th className="p-3 text-left">Product</th>
+                <th className="p-3 text-left">Price</th>
+                <th className="p-3 text-left">Quantity</th>
+                <th className="p-3 text-left">Subtotal</th>
+                <th className="p-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cart.items.map((item) => (
+                <tr className="border-t" key={item.id}>
+                  <td className="p-3">{item.product_name}</td>
+                  <td className="p-3">${item.price}</td>
+                  <td className="p-3">
+                    <input
+                      className="w-20 rounded border p-2"
+                      min="1"
+                      onChange={(event) => updateQuantity(item.id, event.target.value)}
+                      type="number"
+                      value={item.quantity}
+                    />
+                  </td>
+                  <td className="p-3">${item.subtotal}</td>
+                  <td className="p-3">
+                    <button
+                      className="rounded bg-red-500 px-3 py-1 text-white"
+                      onClick={() => removeItem(item.id)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="mt-6 flex items-center justify-between rounded-lg bg-white p-6 shadow">
+            <div>
+              <p className="text-sm text-slate-500">Items</p>
+              <p className="text-2xl font-bold">{cart.item_count}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500">Total</p>
+              <p className="text-2xl font-bold">${cart.total}</p>
+            </div>
+            <button
+              className="rounded bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+              onClick={checkout}
+              type="button"
+            >
+              Place Order
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default Cart;

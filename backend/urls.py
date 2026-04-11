@@ -19,18 +19,23 @@ from django.urls import path, include
 
 # JWT
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView
 )
+from backend.views import DashboardAPI
+from users.views import DashCartTokenObtainPairView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
     # JWT AUTH
-    path('api/token/', TokenObtainPairView.as_view()),
+    path('api/token/', DashCartTokenObtainPairView.as_view()),
     path('api/token/refresh/', TokenRefreshView.as_view()),
 
     # YOUR APIS
     path('api/cart/', include('cart.urls')),
+    path('api/dashboard/', DashboardAPI.as_view()),
+    path('api/inventory/', include('inventory.urls')),
+    path('api/orders/', include('orders.urls')),
     path('api/products/', include('products.urls')),
+    path('api/users/', include('users.urls')),
 ]
