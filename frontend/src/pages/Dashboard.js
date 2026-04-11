@@ -1,25 +1,77 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+
+import { API_BASE_URL, authHeaders } from "../utils/api";
+import { getCurrentUser } from "../utils/auth";
+
 function Dashboard() {
+  const user = getCurrentUser();
+  const isStaff = user?.role === "staff";
+  const [dashboard, setDashboard] = useState(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      setError("");
+      setIsLoading(true);
+
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/dashboard/`, {
+          headers: authHeaders(),
+        });
+        setDashboard(response.data);
+      } catch (err) {
+        setError("Could not load dashboard data.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, []);
+
   return (
     <div>
-      <h2 className="text-3xl font-bold mb-8">Dashboard</h2>
+      <h2 className="mb-2 text-3xl font-bold">Dashboard</h2>
+      <p className="mb-8 text-slate-600">
+        Welcome, {dashboard?.username || user?.username}. You are logged in as{" "}
+        {dashboard?.role || user?.role}.
+      </p>
 
-      <div className="grid grid-cols-3 gap-6">
-        
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-          <h3 className="text-gray-500">Total Sales</h3>
-          <p className="text-3xl font-bold mt-2">$12,000</p>
+      {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
+
+      {isLoading ? (
+        <p className="text-slate-600">Loading dashboard...</p>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {dashboard?.cards.map((card) => (
+            <div
+              className="rounded-xl bg-white p-6 shadow transition hover:shadow-lg"
+              key={card.label}
+            >
+              <h3 className="text-gray-500">{card.label}</h3>
+              <p className="mt-2 text-3xl font-bold">{card.value}</p>
+              <p className="mt-2 text-sm text-slate-500">{card.description}</p>
+            </div>
+          ))}
         </div>
+      )}
 
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-          <h3 className="text-gray-500">Orders</h3>
-          <p className="text-3xl font-bold mt-2">320</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-          <h3 className="text-gray-500">Products</h3>
-          <p className="text-3xl font-bold mt-2">85</p>
-        </div>
-
+      <div className="mt-8 flex gap-3">
+        <Link className="rounded bg-blue-600 px-4 py-2 text-white" to="/products">
+          View Products
+        </Link>
+        {isStaff ? (
+          <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/inventory">
+            Manage Inventory
+          </Link>
+        ) : (
+          <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/cart">
+            View Cart
+          </Link>
+        )}
       </div>
     </div>
   );

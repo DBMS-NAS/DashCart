@@ -130,6 +130,7 @@ USE_TZ = True
 
 # STATIC FILES
 STATIC_URL = 'static/'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # CORS (ALLOW REACT TO CONNECT)

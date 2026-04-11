@@ -1,7 +1,11 @@
 import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
+import { saveCurrentUser } from "../utils/auth";
 
 function Login() {
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -12,18 +16,21 @@ function Login() {
 
     try {
       const res = await axios.post(
-        "http://127.0.0.1:8000/api/token/",
+        `${API_BASE_URL}/api/token/`,
         {
           username,
           password,
         }
       );
 
-      localStorage.setItem("token", res.data.access);
+      saveCurrentUser({
+        access: res.data.access,
+        refresh: res.data.refresh,
+        username: res.data.username,
+        role: res.data.role,
+      });
 
-      alert("Login successful ✅");
-
-      window.location.href = "/dashboard";
+      navigate("/dashboard");
 
     } catch (err) {
       setError("Invalid username or password ❌");
@@ -69,6 +76,13 @@ function Login() {
           </button>
 
         </form>
+
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Need an account?{" "}
+          <Link className="font-semibold text-blue-600 hover:underline" to="/register">
+            Create one
+          </Link>
+        </p>
 
       </div>
     </div>

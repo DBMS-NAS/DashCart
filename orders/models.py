@@ -1,3 +1,6 @@
+from uuid import uuid4
+
+from django.core.exceptions import ValidationError
 from django.db import models
 from users.models import User
 from products.models import Product
@@ -12,6 +15,10 @@ class Order(models.Model):
     def __str__(self):
         return self.order_id
 
+    @staticmethod
+    def generate_order_id():
+        return f"ORD-{uuid4().hex[:8].upper()}"
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
@@ -23,22 +30,33 @@ class OrderItem(models.Model):
         return f"{self.order.order_id} - {self.product.name}"
 
     def save(self, *args, **kwargs):
-        from django.core.exceptions import ValidationError
         from inventory.models import Inventory
 
-        # get inventory for product
-        inventory = Inventory.objects.get(product=self.product)
+        if not self._state.adding:
+            super().save(*args, **kwargs)
+            return
 
-        # ✅ STOCK CHECK
-        if self.quantity > inventory.quantity:
+        inventories = list(
+            Inventory.objects.select_for_update()
+            .filter(product=self.product)
+            .order_by("id")
+        )
+        total_available = sum(inventory.quantity for inventory in inventories)
+
+        if self.quantity > total_available:
             raise ValidationError(
                 f"Not enough stock for {self.product.name}. "
-                f"Available: {inventory.quantity}, Requested: {self.quantity}"
+                f"Available: {total_available}, Requested: {self.quantity}"
             )
 
-        # save order item first
         super().save(*args, **kwargs)
 
-        # reduce stock
-        inventory.quantity -= self.quantity
-        inventory.save()
+        remaining = self.quantity
+        for inventory in inventories:
+            if remaining <= 0:
+                break
+
+            reduction = min(inventory.quantity, remaining)
+            inventory.quantity -= reduction
+            inventory.save()
+            remaining -= reduction
