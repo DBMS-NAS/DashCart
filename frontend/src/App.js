@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
 import Register from "./pages/Register";
+import Suppliers from "./pages/Suppliers";
 
 function AppLayout({ children }) {
   return (
@@ -71,6 +72,16 @@ function App() {
             <ProtectedRoute allowedRoles={["staff"]}>
               <AppLayout>
                 <Inventory />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suppliers"
+          element={
+            <ProtectedRoute allowedRoles={["staff"]}>
+              <AppLayout>
+                <Suppliers />
               </AppLayout>
             </ProtectedRoute>
           }

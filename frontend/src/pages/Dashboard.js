@@ -59,14 +59,19 @@ function Dashboard() {
         </div>
       )}
 
-      <div className="mt-8 flex gap-3">
+      <div className="mt-8 flex flex-wrap gap-3">
         <Link className="rounded bg-blue-600 px-4 py-2 text-white" to="/products">
           View Products
         </Link>
         {isStaff ? (
-          <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/inventory">
-            Manage Inventory
-          </Link>
+          <>
+            <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/inventory">
+              Manage Inventory
+            </Link>
+            <Link className="rounded bg-emerald-700 px-4 py-2 text-white" to="/suppliers">
+              Manage Suppliers
+            </Link>
+          </>
         ) : (
           <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/cart">
             View Cart

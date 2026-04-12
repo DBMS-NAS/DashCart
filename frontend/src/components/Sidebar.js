@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+
 import { clearCurrentUser, getCurrentUser } from "../utils/auth";
 
 function Sidebar() {
@@ -24,41 +25,47 @@ function Sidebar() {
       )}
 
       <ul className="flex-1 space-y-4">
-        
         <li>
           <Link to="/dashboard" className="block rounded p-2 hover:bg-slate-700">
-            🏠 Dashboard
+            Dashboard
           </Link>
         </li>
 
         <li>
           <Link to="/products" className="block rounded p-2 hover:bg-slate-700">
-            📦 Products
+            Products
           </Link>
         </li>
 
         {isCustomer && (
           <li>
             <Link to="/cart" className="block rounded p-2 hover:bg-slate-700">
-              🛒 Cart
+              Cart
             </Link>
           </li>
         )}
 
         <li>
           <Link to="/orders" className="block rounded p-2 hover:bg-slate-700">
-            🧾 Orders
+            Orders
           </Link>
         </li>
 
         {isStaff && (
           <li>
             <Link to="/inventory" className="block rounded p-2 hover:bg-slate-700">
-              📊 Inventory
+              Inventory
             </Link>
           </li>
         )}
 
+        {isStaff && (
+          <li>
+            <Link to="/suppliers" className="block rounded p-2 hover:bg-slate-700">
+              Suppliers
+            </Link>
+          </li>
+        )}
       </ul>
 
       <button
