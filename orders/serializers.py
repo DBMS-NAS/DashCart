@@ -3,6 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from .models import Order, OrderItem
+from payments.serializers import PaymentSerializer
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -22,10 +23,11 @@ class OrderSerializer(serializers.ModelSerializer):
     customer = serializers.CharField(source="user.name", read_only=True)
     items = OrderItemSerializer(source="orderitem_set", many=True, read_only=True)
     total = serializers.SerializerMethodField()
+    payment = PaymentSerializer(read_only=True)
 
     class Meta:
         model = Order
-        fields = ["order_id", "customer", "status", "created_at", "items", "total"]
+        fields = ["order_id", "customer", "status", "created_at", "items", "total", "payment"]
 
     def get_total(self, obj):
         total = sum(

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 
-import { API_BASE_URL, authHeaders } from "../utils/api";
+import { API_BASE_URL } from "../utils/api";
 
 const supplierInitialState = {
   name: "",
@@ -36,12 +36,8 @@ function Suppliers() {
 
     try {
       const [suppliersResponse, requestsResponse] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/suppliers/`, {
-          headers: authHeaders(),
-        }),
-        axios.get(`${API_BASE_URL}/api/suppliers/requests/`, {
-          headers: authHeaders(),
-        }),
+        axios.get(`${API_BASE_URL}/api/suppliers/`),
+        axios.get(`${API_BASE_URL}/api/suppliers/requests/`),
       ]);
 
       setSuppliers(suppliersResponse.data);
@@ -58,17 +54,11 @@ function Suppliers() {
   }, []);
 
   const handleSupplierChange = (event) => {
-    setSupplierForm({
-      ...supplierForm,
-      [event.target.name]: event.target.value,
-    });
+    setSupplierForm({ ...supplierForm, [event.target.name]: event.target.value });
   };
 
   const handleRequestChange = (event) => {
-    setRequestForm({
-      ...requestForm,
-      [event.target.name]: event.target.value,
-    });
+    setRequestForm({ ...requestForm, [event.target.name]: event.target.value });
   };
 
   const handleSupplierSave = async (event) => {
@@ -78,9 +68,7 @@ function Suppliers() {
     setIsSavingSupplier(true);
 
     try {
-      await axios.post(`${API_BASE_URL}/api/suppliers/`, supplierForm, {
-        headers: authHeaders(),
-      });
+      await axios.post(`${API_BASE_URL}/api/suppliers/`, supplierForm);
       setSupplierForm(supplierInitialState);
       setMessage("Supplier added.");
       await loadData();
@@ -104,16 +92,10 @@ function Suppliers() {
     setIsSavingRequest(true);
 
     try {
-      await axios.post(
-        `${API_BASE_URL}/api/suppliers/requests/`,
-        {
-          ...requestForm,
-          quantity: Number(requestForm.quantity),
-        },
-        {
-          headers: authHeaders(),
-        }
-      );
+      await axios.post(`${API_BASE_URL}/api/suppliers/requests/`, {
+        ...requestForm,
+        quantity: Number(requestForm.quantity),
+      });
       setRequestForm(requestInitialState);
       setMessage("Supplier request created.");
       setActiveTab("requests");
@@ -147,9 +129,7 @@ function Suppliers() {
       <div className="mb-6 flex gap-3">
         <button
           className={`rounded px-4 py-2 font-medium ${
-            activeTab === "suppliers"
-              ? "bg-slate-900 text-white"
-              : "bg-white text-slate-700 shadow"
+            activeTab === "suppliers" ? "bg-slate-900 text-white" : "bg-white text-slate-700 shadow"
           }`}
           onClick={() => setActiveTab("suppliers")}
           type="button"
@@ -158,9 +138,7 @@ function Suppliers() {
         </button>
         <button
           className={`rounded px-4 py-2 font-medium ${
-            activeTab === "requests"
-              ? "bg-slate-900 text-white"
-              : "bg-white text-slate-700 shadow"
+            activeTab === "requests" ? "bg-slate-900 text-white" : "bg-white text-slate-700 shadow"
           }`}
           onClick={() => setActiveTab("requests")}
           type="button"
@@ -175,7 +153,6 @@ function Suppliers() {
         <div className="grid gap-6 xl:grid-cols-[360px,1fr]">
           <form className="rounded-xl bg-white p-5 shadow" onSubmit={handleSupplierSave}>
             <h3 className="mb-4 text-xl font-semibold">Add Supplier</h3>
-
             <input
               className="mb-3 w-full rounded border p-2"
               name="name"
@@ -213,7 +190,6 @@ function Suppliers() {
               rows="4"
               value={supplierForm.address}
             />
-
             <button
               className="rounded bg-blue-600 px-4 py-2 text-white disabled:bg-slate-400"
               disabled={isSavingSupplier}
@@ -225,7 +201,6 @@ function Suppliers() {
 
           <div className="rounded-xl bg-white p-5 shadow">
             <h3 className="mb-4 text-xl font-semibold">Supplier List</h3>
-
             {suppliers.length === 0 ? (
               <p className="text-slate-600">No suppliers added yet.</p>
             ) : (
@@ -261,7 +236,6 @@ function Suppliers() {
         <div className="grid gap-6 xl:grid-cols-[360px,1fr]">
           <form className="rounded-xl bg-white p-5 shadow" onSubmit={handleRequestSave}>
             <h3 className="mb-4 text-xl font-semibold">Request Product</h3>
-
             <select
               className="mb-3 w-full rounded border p-2"
               name="supplier"
@@ -299,7 +273,6 @@ function Suppliers() {
               rows="4"
               value={requestForm.notes}
             />
-
             <button
               className="rounded bg-emerald-600 px-4 py-2 text-white disabled:bg-slate-400"
               disabled={isSavingRequest || suppliers.length === 0}
@@ -307,7 +280,6 @@ function Suppliers() {
             >
               {isSavingRequest ? "Saving..." : "Create Request"}
             </button>
-
             {suppliers.length === 0 && (
               <p className="mt-3 text-sm text-amber-700">
                 Add a supplier first before creating requests.
@@ -317,7 +289,6 @@ function Suppliers() {
 
           <div className="rounded-xl bg-white p-5 shadow">
             <h3 className="mb-4 text-xl font-semibold">Request History</h3>
-
             {requests.length === 0 ? (
               <p className="text-slate-600">No supplier requests created yet.</p>
             ) : (

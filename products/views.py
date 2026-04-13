@@ -29,15 +29,19 @@ def get_or_create_brand(brand_name):
     )
 
 
-def get_default_warehouse():
-    store = Store.objects.get_or_create(
-        store_id="STORE-DEFAULT",
-        defaults={"name": "Main Store", "location": "Local"},
-    )[0]
+def get_warehouse_for_user(user):
+    profile = getattr(user, "account_profile", None)
+    store = profile.store if profile else None
+
+    if not store:
+        store = Store.objects.get_or_create(
+            store_id="STORE-DEFAULT",
+            defaults={"name": "Main Store", "location": "Local"},
+        )[0]
 
     return Warehouse.objects.get_or_create(
-        warehouse_id="WH-DEFAULT",
-        defaults={"store": store, "location": "Main Warehouse"},
+        warehouse_id=f"WH-{store.store_id}",
+        defaults={"store": store, "location": f"{store.name} Warehouse"},
     )[0]
 
 
@@ -59,8 +63,8 @@ def parse_stock(value):
     return stock if stock >= 0 else None
 
 
-def set_product_stock(product, stock):
-    warehouse = get_default_warehouse()
+def set_product_stock(product, stock, user=None):
+    warehouse = get_warehouse_for_user(user) if user else get_warehouse_for_user(None)
     inventory, _ = Inventory.objects.get_or_create(
         product=product,
         warehouse=warehouse,
@@ -90,6 +94,7 @@ class ProductListAPI(APIView):
         brand_name = str(request.data.get("brand_name", "")).strip()
         price = parse_price(request.data.get("price"))
         stock = parse_stock(request.data.get("stock", 0))
+        image = request.FILES.get("image")
 
         if not name:
             return Response({"name": ["Product name is required."]}, status=400)
@@ -105,8 +110,9 @@ class ProductListAPI(APIView):
             name=name,
             price=price,
             brand=get_or_create_brand(brand_name),
+            image=image,
         )
-        set_product_stock(product, stock)
+        set_product_stock(product, stock, request.user)
 
         return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
 
@@ -148,13 +154,16 @@ class ProductDetailAPI(APIView):
                 return Response({"brand_name": ["Product brand is required."]}, status=400)
             product.brand = get_or_create_brand(brand_name)
 
+        if "image" in request.FILES:
+            product.image = request.FILES["image"]
+
         product.save()
 
         if "stock" in request.data:
             stock = parse_stock(request.data.get("stock"))
             if stock is None:
                 return Response({"stock": ["Enter a valid non-negative stock quantity."]}, status=400)
-            set_product_stock(product, stock)
+            set_product_stock(product, stock, request.user)
 
         return Response(ProductSerializer(product).data)
 

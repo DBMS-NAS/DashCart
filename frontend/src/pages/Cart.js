@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-
-import { API_BASE_URL, authHeaders } from "../utils/api";
+import axios from "../utils/axiosInstance";
+import { API_BASE_URL } from "../utils/api";
 
 function Cart() {
   const [cart, setCart] = useState({ items: [], item_count: 0, total: "0.00" });
@@ -14,9 +13,7 @@ function Cart() {
     setIsLoading(true);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/cart/`, {
-        headers: authHeaders(),
-      });
+      const response = await axios.get(`${API_BASE_URL}/api/cart/`);
       setCart(response.data);
     } catch (err) {
       setError("Could not load cart.");
@@ -36,8 +33,7 @@ function Cart() {
     try {
       const response = await axios.patch(
         `${API_BASE_URL}/api/cart/items/${itemId}/`,
-        { quantity },
-        { headers: authHeaders() }
+        { quantity }
       );
       setCart(response.data);
     } catch (err) {
@@ -50,9 +46,7 @@ function Cart() {
     setMessage("");
 
     try {
-      const response = await axios.delete(`${API_BASE_URL}/api/cart/items/${itemId}/`, {
-        headers: authHeaders(),
-      });
+      const response = await axios.delete(`${API_BASE_URL}/api/cart/items/${itemId}/`);
       setCart(response.data);
     } catch (err) {
       setError(err.response?.data?.detail || "Could not remove cart item.");
@@ -64,12 +58,7 @@ function Cart() {
     setMessage("");
 
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/api/cart/checkout/`,
-        {},
-        { headers: authHeaders() }
-      );
-
+      const response = await axios.post(`${API_BASE_URL}/api/cart/checkout/`, {});
       setCart(response.data.cart);
       setMessage(`Order ${response.data.order_id} placed successfully.`);
     } catch (err) {

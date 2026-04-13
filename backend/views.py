@@ -89,10 +89,16 @@ class DashboardAPI(APIView):
                 },
             ]
 
+        profile = getattr(request.user, "account_profile", None)
+        store_name = profile.store.name if profile and profile.store else None
+        store_location = profile.store.location if profile and profile.store else None
+
         return Response(
             {
                 "username": request.user.username,
                 "role": role,
+                "store_name": store_name,
+                "store_location": store_location,
                 "cards": cards,
             }
         )

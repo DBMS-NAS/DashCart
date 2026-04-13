@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 
-import { API_BASE_URL, authHeaders } from "../utils/api";
+import { API_BASE_URL } from "../utils/api";
 import { getCurrentUser } from "../utils/auth";
 
 function Dashboard() {
@@ -18,9 +18,7 @@ function Dashboard() {
       setIsLoading(true);
 
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/dashboard/`, {
-          headers: authHeaders(),
-        });
+        const response = await axios.get(`${API_BASE_URL}/api/dashboard/`);
         setDashboard(response.data);
       } catch (err) {
         setError("Could not load dashboard data.");
@@ -35,10 +33,25 @@ function Dashboard() {
   return (
     <div>
       <h2 className="mb-2 text-3xl font-bold">Dashboard</h2>
-      <p className="mb-8 text-slate-600">
+      <p className="mb-4 text-slate-600">
         Welcome, {dashboard?.username || user?.username}. You are logged in as{" "}
         {dashboard?.role || user?.role}.
       </p>
+
+      {dashboard?.store_name && (
+        <div className="mb-8 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white text-lg">
+            🏪
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">Your Store</p>
+            <p className="text-lg font-bold text-blue-900">{dashboard.store_name}</p>
+            {dashboard.store_location && (
+              <p className="text-sm text-blue-600">{dashboard.store_location}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
 

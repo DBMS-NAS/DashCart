@@ -1,3 +1,4 @@
+
 import { Link, useNavigate } from "react-router-dom";
 
 import { clearCurrentUser, getCurrentUser } from "../utils/auth";
@@ -63,6 +64,14 @@ function Sidebar() {
           <li>
             <Link to="/suppliers" className="block rounded p-2 hover:bg-slate-700">
               Suppliers
+            </Link>
+          </li>
+        )}
+
+        {isStaff && (
+          <li>
+            <Link to="/discounts" className="block rounded p-2 hover:bg-slate-700">
+              Discounts
             </Link>
           </li>
         )}

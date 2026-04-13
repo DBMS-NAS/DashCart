@@ -3,6 +3,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Sidebar from "./components/Sidebar";
 import Cart from "./pages/Cart";
 import Dashboard from "./pages/Dashboard";
+import Discounts from "./pages/Discounts";
 import Inventory from "./pages/Inventory";
 import Login from "./pages/Login";
 import Orders from "./pages/Orders";
@@ -82,6 +83,16 @@ function App() {
             <ProtectedRoute allowedRoles={["staff"]}>
               <AppLayout>
                 <Suppliers />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/discounts"
+          element={
+            <ProtectedRoute allowedRoles={["staff"]}>
+              <AppLayout>
+                <Discounts />
               </AppLayout>
             </ProtectedRoute>
           }

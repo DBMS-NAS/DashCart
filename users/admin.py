@@ -18,6 +18,7 @@ class AccountProfileInline(admin.StackedInline):
     can_delete = False
     extra = 0
     max_num = 1
+    fields = ("role", "store")
 
     def get_extra(self, request, obj=None, **kwargs):
         if obj and not hasattr(obj, "account_profile"):
@@ -30,12 +31,17 @@ AuthUser = get_user_model()
 
 class AuthUserAdmin(DjangoUserAdmin):
     inlines = (AccountProfileInline,)
-    list_display = DjangoUserAdmin.list_display + ("account_role",)
+    list_display = DjangoUserAdmin.list_display + ("account_role", "account_store")
 
     @admin.display(description="Role")
     def account_role(self, obj):
         profile = getattr(obj, "account_profile", None)
         return profile.role if profile else "No role selected"
+
+    @admin.display(description="Store")
+    def account_store(self, obj):
+        profile = getattr(obj, "account_profile", None)
+        return profile.store.name if profile and profile.store else "No store assigned"
 
 
 try:
@@ -48,6 +54,6 @@ admin.site.register(AuthUser, AuthUserAdmin)
 
 @admin.register(AccountProfile)
 class AccountProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "role", "created_at")
-    list_filter = ("role",)
+    list_display = ("user", "role", "store", "created_at")
+    list_filter = ("role", "store")
     search_fields = ("user__username",)

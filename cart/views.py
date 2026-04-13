@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from rest_framework.views import APIView
@@ -5,7 +7,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
+from discounts.utils import get_effective_price
 from orders.models import Order, OrderItem
+from payments.models import Payment
 from products.models import Product
 from users.models import UserRole
 from users.services import get_account_role, get_or_create_database_user
@@ -162,7 +166,7 @@ class CheckoutAPI(APIView):
         order = Order.objects.create(
             order_id=Order.generate_order_id(),
             user=database_user,
-            status="Pending",
+            status="pending",
         )
 
         try:
@@ -171,7 +175,7 @@ class CheckoutAPI(APIView):
                     order=order,
                     product=item.product,
                     quantity=item.quantity,
-                    price=item.product.price,
+                    price=get_effective_price(item.product),
                 )
         except ValidationError as exc:
             order.delete()
@@ -179,6 +183,18 @@ class CheckoutAPI(APIView):
                 {"detail": exc.messages[0] if exc.messages else str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Calculate total and create a Payment record automatically
+        total = sum(
+            Decimal(item.quantity) * get_effective_price(item.product)
+            for item in items
+        )
+        Payment.objects.create(
+            order=order,
+            amount=total,
+            method=request.data.get("payment_method", "card"),
+            status="paid",
+        )
 
         cart.items.all().delete()
 
