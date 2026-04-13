@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
 import Register from "./pages/Register";
+import Reviews from "./pages/Reviews";
 import Suppliers from "./pages/Suppliers";
 
 function AppLayout({ children }) {
@@ -53,6 +54,16 @@ function App() {
             <ProtectedRoute allowedRoles={["customer", "staff"]}>
               <AppLayout>
                 <Orders />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reviews"
+          element={
+            <ProtectedRoute allowedRoles={["customer", "staff"]}>
+              <AppLayout>
+                <Reviews />
               </AppLayout>
             </ProtectedRoute>
           }

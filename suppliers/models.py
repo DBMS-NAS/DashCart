@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.db import models
+from products.models import Product
 
 
 class Supplier(models.Model):
@@ -22,6 +23,27 @@ class Supplier(models.Model):
     @staticmethod
     def generate_supplier_id():
         return f"SUP-{uuid4().hex[:8].upper()}"
+
+
+class SupplierProduct(models.Model):
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.CASCADE,
+        related_name="supplier_products",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="supplier_products",
+    )
+
+    class Meta:
+        db_table = "supplier_products"
+        unique_together = ("supplier", "product")
+        ordering = ["supplier__name", "product__name"]
+
+    def __str__(self):
+        return f"{self.supplier.name} supplies {self.product.name}"
 
 
 class SupplierRequest(models.Model):
@@ -67,4 +89,3 @@ class SupplierRequest(models.Model):
     @staticmethod
     def generate_request_id():
         return f"REQ-{uuid4().hex[:8].upper()}"
-
