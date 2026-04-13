@@ -4,8 +4,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from users.services import is_staff_account
-from .models import Supplier, SupplierRequest
-from .serializers import SupplierRequestSerializer, SupplierSerializer
+from .models import Supplier, SupplierProduct, SupplierRequest
+from .serializers import (
+    SupplierProductSerializer,
+    SupplierRequestSerializer,
+    SupplierSerializer,
+)
 
 
 def staff_only(user):
@@ -36,6 +40,38 @@ class SupplierListCreateAPI(APIView):
         serializer.is_valid(raise_exception=True)
         supplier = serializer.save(supplier_id=Supplier.generate_supplier_id())
         return Response(SupplierSerializer(supplier).data, status=status.HTTP_201_CREATED)
+
+
+class SupplierProductListCreateAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not staff_only(request.user):
+            return Response(
+                {"detail": "Only staff can view supplier products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        supplier_products = SupplierProduct.objects.select_related(
+            "supplier",
+            "product",
+        ).all()
+        return Response(SupplierProductSerializer(supplier_products, many=True).data)
+
+    def post(self, request):
+        if not staff_only(request.user):
+            return Response(
+                {"detail": "Only staff can link suppliers to products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = SupplierProductSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        supplier_product = serializer.save()
+        return Response(
+            SupplierProductSerializer(supplier_product).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class SupplierRequestListCreateAPI(APIView):
@@ -71,4 +107,3 @@ class SupplierRequestListCreateAPI(APIView):
             SupplierRequestSerializer(supplier_request).data,
             status=status.HTTP_201_CREATED,
         )
-

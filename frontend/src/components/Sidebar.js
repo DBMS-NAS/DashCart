@@ -52,6 +52,12 @@ function Sidebar() {
           </Link>
         </li>
 
+        <li>
+          <Link to="/reviews" className="block rounded p-2 hover:bg-slate-700">
+            Reviews
+          </Link>
+        </li>
+
         {isStaff && (
           <li>
             <Link to="/inventory" className="block rounded p-2 hover:bg-slate-700">

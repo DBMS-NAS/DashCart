@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Supplier, SupplierRequest
+from .models import Supplier, SupplierProduct, SupplierRequest
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -16,6 +16,36 @@ class SupplierSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["supplier_id", "created_at"]
+
+
+class SupplierProductSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.CharField(source="supplier.name", read_only=True)
+    product_name = serializers.CharField(source="product.name", read_only=True)
+
+    class Meta:
+        model = SupplierProduct
+        fields = [
+            "id",
+            "supplier",
+            "supplier_name",
+            "product",
+            "product_name",
+        ]
+        read_only_fields = ["id", "supplier_name", "product_name"]
+
+    def validate(self, attrs):
+        supplier = attrs.get("supplier")
+        product = attrs.get("product")
+
+        if SupplierProduct.objects.filter(
+            supplier=supplier,
+            product=product,
+        ).exists():
+            raise serializers.ValidationError(
+                "This supplier is already linked to this product."
+            )
+
+        return attrs
 
 
 class SupplierRequestSerializer(serializers.ModelSerializer):

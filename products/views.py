@@ -10,8 +10,8 @@ from rest_framework.views import APIView
 from inventory.models import Inventory
 from stores.models import Store, Warehouse
 from users.services import is_staff_account
-from .models import Brand, Product
-from .serializers import ProductSerializer
+from .models import Brand, Category, Product, ProductCategory
+from .serializers import CategorySerializer, ProductSerializer
 
 
 def get_or_create_brand(brand_name):
@@ -27,6 +27,29 @@ def get_or_create_brand(brand_name):
         brand_id=f"BR-{uuid4().hex[:8].upper()}",
         name=normalized_name,
     )
+
+
+def get_or_create_category(category_name):
+    normalized_name = str(category_name or "").strip()
+    if not normalized_name:
+        return None
+
+    category = Category.objects.filter(name__iexact=normalized_name).first()
+    if category:
+        return category
+
+    return Category.objects.create(
+        category_id=f"CAT-{uuid4().hex[:8].upper()}",
+        name=normalized_name,
+    )
+
+
+def set_product_category(product, category_name):
+    ProductCategory.objects.filter(product=product).delete()
+    category = get_or_create_category(category_name)
+
+    if category:
+        ProductCategory.objects.create(product=product, category=category)
 
 
 def get_warehouse_for_user(user):
@@ -78,7 +101,12 @@ class ProductListAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        products = Product.objects.select_related("brand").all().order_by("name")
+        products = (
+            Product.objects.select_related("brand")
+            .prefetch_related("productcategory_set__category")
+            .all()
+            .order_by("name")
+        )
         serializer = ProductSerializer(products, many=True)
         return Response(serializer.data)
 
@@ -92,6 +120,7 @@ class ProductListAPI(APIView):
 
         name = str(request.data.get("name", "")).strip()
         brand_name = str(request.data.get("brand_name", "")).strip()
+        category_name = str(request.data.get("category_name", "")).strip()
         price = parse_price(request.data.get("price"))
         stock = parse_stock(request.data.get("stock", 0))
         image = request.FILES.get("image")
@@ -112,6 +141,7 @@ class ProductListAPI(APIView):
             brand=get_or_create_brand(brand_name),
             image=image,
         )
+        set_product_category(product, category_name)
         set_product_stock(product, stock, request.user)
 
         return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
@@ -121,7 +151,11 @@ class ProductDetailAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_product(self, product_id):
-        return Product.objects.select_related("brand").get(product_id=product_id)
+        return (
+            Product.objects.select_related("brand")
+            .prefetch_related("productcategory_set__category")
+            .get(product_id=product_id)
+        )
 
     @transaction.atomic
     def patch(self, request, product_id):
@@ -159,6 +193,10 @@ class ProductDetailAPI(APIView):
 
         product.save()
 
+        if "category_name" in request.data:
+            set_product_category(product, request.data.get("category_name", ""))
+            product._prefetched_objects_cache = {}
+
         if "stock" in request.data:
             stock = parse_stock(request.data.get("stock"))
             if stock is None:
@@ -182,3 +220,25 @@ class ProductDetailAPI(APIView):
 
         product.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CategoryListCreateAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        categories = Category.objects.all().order_by("name")
+        return Response(CategorySerializer(categories, many=True).data)
+
+    def post(self, request):
+        if not is_staff_account(request.user):
+            return Response(
+                {"detail": "Only staff can add categories."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        category_name = str(request.data.get("name", "")).strip()
+        if not category_name:
+            return Response({"name": ["Category name is required."]}, status=400)
+
+        category = get_or_create_category(category_name)
+        return Response(CategorySerializer(category).data, status=status.HTTP_201_CREATED)

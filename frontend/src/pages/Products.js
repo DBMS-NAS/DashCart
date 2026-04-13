@@ -8,13 +8,16 @@ function Products() {
   const user = getCurrentUser();
   const isStaff = user?.role === "staff";
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [quantities, setQuantities] = useState({});
   const [form, setForm] = useState({
     name: "",
     brand_name: "",
+    category_name: "",
     price: "",
     stock: "",
     image: null,
@@ -30,10 +33,16 @@ function Products() {
     setError("");
     setIsLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/products/`, {
-        headers: authHeaders(),
-      });
-      setProducts(response.data);
+      const [productsResponse, categoriesResponse] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/products/`, {
+          headers: authHeaders(),
+        }),
+        axios.get(`${API_BASE_URL}/api/products/categories/`, {
+          headers: authHeaders(),
+        }),
+      ]);
+      setProducts(productsResponse.data);
+      setCategories(categoriesResponse.data);
     } catch (err) {
       setError("Could not load products.");
     } finally {
@@ -54,7 +63,14 @@ function Products() {
   };
 
   const resetForm = () => {
-    setForm({ name: "", brand_name: "", price: "", stock: "", image: null });
+    setForm({
+      name: "",
+      brand_name: "",
+      category_name: "",
+      price: "",
+      stock: "",
+      image: null,
+    });
     setEditingProductId(null);
     setShowForm(false);
   };
@@ -65,6 +81,7 @@ function Products() {
     const formData = new FormData();
     formData.append("name", form.name);
     formData.append("brand_name", form.brand_name);
+    formData.append("category_name", form.category_name);
     formData.append("price", form.price);
     formData.append("stock", form.stock);
     if (form.image) formData.append("image", form.image);
@@ -94,6 +111,7 @@ function Products() {
     setForm({
       name: product.name,
       brand_name: product.brand_name,
+      category_name: product.category_names?.[0] || "",
       price: product.price,
       stock: product.stock,
       image: null,
@@ -144,17 +162,21 @@ function Products() {
   const filteredProducts = products.filter((product) => {
     const q = search.toLowerCase();
     const effectivePrice = parseFloat(product.discounted_price || product.price);
+    const productCategories = product.category_names || [];
 
     const matchesSearch =
       product.name.toLowerCase().includes(q) ||
       product.brand_name?.toLowerCase().includes(q) ||
+      productCategories.some((category) => category.toLowerCase().includes(q)) ||
       product.store_name?.toLowerCase().includes(q) ||
       product.discount_name?.toLowerCase().includes(q);
 
+    const matchesCategory =
+      categoryFilter === "" || productCategories.includes(categoryFilter);
     const matchesMin = minPrice === "" || effectivePrice >= parseFloat(minPrice);
     const matchesMax = maxPrice === "" || effectivePrice <= parseFloat(maxPrice);
 
-    return matchesSearch && matchesMin && matchesMax;
+    return matchesSearch && matchesCategory && matchesMin && matchesMax;
   });
 
   return (
@@ -192,7 +214,14 @@ function Products() {
           onClick={() => {
             setShowForm(true);
             setEditingProductId(null);
-            setForm({ name: "", brand_name: "", price: "", stock: "", image: null });
+            setForm({
+              name: "",
+              brand_name: "",
+              category_name: "",
+              price: "",
+              stock: "",
+              image: null,
+            });
           }}
           className="mb-4 rounded bg-blue-500 px-4 py-2 text-white"
           type="button"
@@ -205,6 +234,20 @@ function Products() {
         <div className="mb-6 rounded bg-white p-4 shadow">
           <input type="text" name="name" placeholder="Product Name" value={form.name} onChange={handleChange} className="mb-2 mr-2 border p-2" />
           <input type="text" name="brand_name" placeholder="Brand" value={form.brand_name} onChange={handleChange} className="mb-2 mr-2 border p-2" />
+          <input
+            type="text"
+            name="category_name"
+            placeholder="Category"
+            value={form.category_name}
+            onChange={handleChange}
+            className="mb-2 mr-2 border p-2"
+            list="category-options"
+          />
+          <datalist id="category-options">
+            {categories.map((category) => (
+              <option key={category.category_id} value={category.name} />
+            ))}
+          </datalist>
           <input type="number" name="price" placeholder="Price" value={form.price} onChange={handleChange} className="mb-2 mr-2 border p-2" />
           <input type="number" name="stock" placeholder="Stock" value={form.stock} onChange={handleChange} className="mb-2 mr-2 border p-2" />
           <input type="file" accept="image/*" onChange={handleImageChange} className="mb-2 mr-2 border p-2" />
@@ -217,11 +260,23 @@ function Products() {
       <div className="mb-6 flex gap-3 items-center">
         <input
           type="text"
-          placeholder="Search by product, brand, store or discount..."
+          placeholder="Search by product, brand, category, store or discount..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 rounded-lg border p-2"
         />
+        <select
+          className="rounded-lg border bg-white p-2 text-sm"
+          onChange={(event) => setCategoryFilter(event.target.value)}
+          value={categoryFilter}
+        >
+          <option value="">All categories</option>
+          {categories.map((category) => (
+            <option key={category.category_id} value={category.name}>
+              {category.name}
+            </option>
+          ))}
+        </select>
         <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2">
           <button
             onClick={() => setMinPrice((prev) => Math.max(0, (parseFloat(prev) || 0) - 1).toString())}
@@ -261,9 +316,9 @@ function Products() {
             type="button"
           >+</button>
         </div>
-        {(minPrice || maxPrice) && (
+        {(minPrice || maxPrice || categoryFilter) && (
           <button
-            onClick={() => { setMinPrice(""); setMaxPrice(""); }}
+            onClick={() => { setMinPrice(""); setMaxPrice(""); setCategoryFilter(""); }}
             className="rounded-lg bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
             type="button"
           >
@@ -286,6 +341,7 @@ function Products() {
               <th className="p-3 text-left">Image</th>
               <th className="p-3 text-left">Name</th>
               <th className="p-3 text-left">Brand</th>
+              <th className="p-3 text-left">Category</th>
               <th className="p-3 text-left">Price</th>
               <th className="p-3 text-left">Stock</th>
               <th className="p-3 text-left">Store</th>
@@ -316,6 +372,7 @@ function Products() {
                   )}
                 </td>
                 <td className="p-3">{product.brand_name}</td>
+                <td className="p-3">{product.category_names?.join(", ") || "-"}</td>
                 <td className="p-3">
                   {product.discounted_price ? (
                     <div>
@@ -367,6 +424,9 @@ function Products() {
               <div className="flex flex-1 flex-col p-4">
                 <p className="text-xs text-slate-400">{product.brand_name}</p>
                 <h3 className="mt-1 font-semibold text-slate-900">{product.name}</h3>
+                <p className="mt-1 text-xs font-medium text-blue-600">
+                  {product.category_names?.join(", ") || "Uncategorized"}
+                </p>
                 <p className="mt-1 text-xs text-slate-400">{product.store_name}</p>
 
                 {/* PRICE + STOCK ON SAME LINE */}
