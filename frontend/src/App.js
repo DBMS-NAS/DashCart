@@ -3,11 +3,13 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Sidebar from "./components/Sidebar";
 import Cart from "./pages/Cart";
 import Dashboard from "./pages/Dashboard";
+import Discounts from "./pages/Discounts";
 import Inventory from "./pages/Inventory";
 import Login from "./pages/Login";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
 import Register from "./pages/Register";
+import Suppliers from "./pages/Suppliers";
 
 function AppLayout({ children }) {
   return (
@@ -71,6 +73,26 @@ function App() {
             <ProtectedRoute allowedRoles={["staff"]}>
               <AppLayout>
                 <Inventory />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suppliers"
+          element={
+            <ProtectedRoute allowedRoles={["staff"]}>
+              <AppLayout>
+                <Suppliers />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/discounts"
+          element={
+            <ProtectedRoute allowedRoles={["staff"]}>
+              <AppLayout>
+                <Discounts />
               </AppLayout>
             </ProtectedRoute>
           }

@@ -1,3 +1,4 @@
+
 """
 Django settings for backend project.
 """
@@ -33,10 +34,12 @@ INSTALLED_APPS = [
     'stores',
     'products',
     'inventory',
+    'suppliers',
     'orders',
     'payments',
     'reviews',
     'cart',
+    'discounts',
 
     # third-party apps
     'rest_framework',
@@ -143,3 +146,6 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+# MEDIA FILES
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

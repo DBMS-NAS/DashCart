@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 
-import { API_BASE_URL, authHeaders } from "../utils/api";
+import { API_BASE_URL } from "../utils/api";
 
 function Inventory() {
   const [inventory, setInventory] = useState([]);
@@ -14,9 +14,7 @@ function Inventory() {
       setIsLoading(true);
 
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/inventory/`, {
-          headers: authHeaders(),
-        });
+        const response = await axios.get(`${API_BASE_URL}/api/inventory/`);
         setInventory(response.data);
       } catch (err) {
         setError(err.response?.data?.detail || "Could not load inventory.");

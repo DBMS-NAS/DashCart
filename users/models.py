@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from stores.models import Store
 
 
 class UserRole(models.TextChoices):
@@ -31,6 +32,12 @@ class AccountProfile(models.Model):
         max_length=20,
         choices=UserRole.choices,
         default=UserRole.CUSTOMER,
+    )
+    store = models.ForeignKey(
+        Store,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
