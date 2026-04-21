@@ -1,12 +1,17 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
+from backend.mysql_routines import (
+    call_checkout_procedure,
+    get_database_error_message,
+    using_mysql,
+)
 from discounts.utils import get_effective_price
 from orders.models import Order, OrderItem
 from payments.models import Payment
@@ -161,6 +166,28 @@ class CheckoutAPI(APIView):
             return Response(
                 {"detail": "Your cart is empty."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if using_mysql():
+            try:
+                order_id = call_checkout_procedure(
+                    database_user.user_id,
+                    request.data.get("payment_method", "card"),
+                )
+            except DatabaseError as exc:
+                return Response(
+                    {"detail": get_database_error_message(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            order = Order.objects.get(order_id=order_id)
+            return Response(
+                {
+                    "order_id": order.order_id,
+                    "status": order.status,
+                    "cart": serialize_cart(cart),
+                },
+                status=status.HTTP_201_CREATED,
             )
 
         order = Order.objects.create(

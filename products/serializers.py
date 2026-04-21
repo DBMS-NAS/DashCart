@@ -1,5 +1,14 @@
 from decimal import Decimal
+
+from django.db.models import Avg
 from rest_framework import serializers
+
+from backend.mysql_routines import (
+    get_average_rating_value,
+    get_total_inventory_value,
+    using_mysql,
+)
+from discounts.utils import get_best_discount, get_effective_price
 from inventory.models import Inventory
 
 from .models import Category, Product, ProductCategory
@@ -21,6 +30,7 @@ class ProductSerializer(serializers.ModelSerializer):
     discount_percent = serializers.SerializerMethodField()
     discounted_price = serializers.SerializerMethodField()
     discount_name = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -38,9 +48,13 @@ class ProductSerializer(serializers.ModelSerializer):
             "discount_percent",
             "discounted_price",
             "discount_name",
+            "average_rating",
         ]
 
     def get_stock(self, obj):
+        if using_mysql():
+            return get_total_inventory_value(obj.product_id)
+
         return sum(
             inventory.quantity
             for inventory in Inventory.objects.filter(product=obj)
@@ -73,25 +87,30 @@ class ProductSerializer(serializers.ModelSerializer):
         return [category.name for category in self._get_product_categories(obj)]
 
     def _get_active_discount(self, obj):
-        pd = (
-            obj.product_discounts
-            .select_related("discount")
-            .order_by("-discount__discount_percent")
-            .first()
-        )
-        return pd.discount if pd else None
+        product_discount = get_best_discount(obj)
+        return product_discount.discount if product_discount else None
 
     def get_discount_percent(self, obj):
         discount = self._get_active_discount(obj)
         return str(discount.discount_percent) if discount else None
 
     def get_discounted_price(self, obj):
-        discount = self._get_active_discount(obj)
-        if not discount:
+        effective_price = get_effective_price(obj)
+        if effective_price == Decimal(obj.price):
             return None
-        reduction = Decimal(obj.price) * Decimal(discount.discount_percent) / Decimal("100")
-        return str((Decimal(obj.price) - reduction).quantize(Decimal("0.01")))
+        return str(effective_price.quantize(Decimal("0.01")))
 
     def get_discount_name(self, obj):
         discount = self._get_active_discount(obj)
         return discount.name if discount else None
+
+    def get_average_rating(self, obj):
+        if using_mysql():
+            rating = get_average_rating_value(obj.product_id)
+            return str(rating.quantize(Decimal("0.01"))) if rating is not None else None
+
+        aggregate = obj.reviews.aggregate(avg_rating=Avg("rating"))
+        rating = aggregate["avg_rating"]
+        if rating is None:
+            return None
+        return str(Decimal(str(rating)).quantize(Decimal("0.01")))

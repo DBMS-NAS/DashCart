@@ -1,9 +1,14 @@
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from backend.mysql_routines import (
+    call_stock_movement_procedure,
+    get_database_error_message,
+    using_mysql,
+)
 from users.services import is_staff_account
 from .models import Inventory, StockMovement
 from .serializers import InventorySerializer, StockMovementSerializer
@@ -58,6 +63,30 @@ class StockMovementListCreateAPI(APIView):
         warehouse = serializer.validated_data["warehouse"]
         quantity = serializer.validated_data["quantity"]
         movement_type = serializer.validated_data["movement_type"]
+
+        if using_mysql():
+            try:
+                movement_id = call_stock_movement_procedure(
+                    product.product_id,
+                    warehouse.warehouse_id,
+                    quantity,
+                    movement_type,
+                )
+            except DatabaseError as exc:
+                return Response(
+                    {"detail": get_database_error_message(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            movement = StockMovement.objects.select_related(
+                "product",
+                "warehouse",
+                "warehouse__store",
+            ).get(movement_id=movement_id)
+            return Response(
+                StockMovementSerializer(movement).data,
+                status=status.HTTP_201_CREATED,
+            )
 
         inventory, _ = Inventory.objects.select_for_update().get_or_create(
             product=product,

@@ -2,18 +2,14 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from discounts.utils import get_effective_price
 from .models import Cart, CartItem
 
 
 class CartItemSerializer(serializers.ModelSerializer):
     product_id = serializers.CharField(source="product.product_id", read_only=True)
     product_name = serializers.CharField(source="product.name", read_only=True)
-    price = serializers.DecimalField(
-        source="product.price",
-        max_digits=10,
-        decimal_places=2,
-        read_only=True,
-    )
+    price = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()
 
     class Meta:
@@ -27,8 +23,11 @@ class CartItemSerializer(serializers.ModelSerializer):
             "subtotal",
         ]
 
+    def get_price(self, obj):
+        return f"{get_effective_price(obj.product):.2f}"
+
     def get_subtotal(self, obj):
-        subtotal = Decimal(obj.quantity) * obj.product.price
+        subtotal = Decimal(obj.quantity) * get_effective_price(obj.product)
         return f"{subtotal:.2f}"
 
 
@@ -46,7 +45,7 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_total(self, obj):
         total = sum(
-            Decimal(item.quantity) * item.product.price
+            Decimal(item.quantity) * get_effective_price(item.product)
             for item in obj.items.select_related("product")
         )
         return f"{total:.2f}"
