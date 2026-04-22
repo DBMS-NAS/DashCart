@@ -48,7 +48,7 @@ function Sidebar() {
 
         <li>
           <Link to="/orders" className="block rounded p-2 hover:bg-slate-700">
-            Orders
+            {isCustomer ? "Order History" : "Orders"}
           </Link>
         </li>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 
-import { API_BASE_URL, authHeaders } from "../utils/api";
+import { API_BASE_URL } from "../utils/api";
 import { getCurrentUser } from "../utils/auth";
 
 function Products() {
@@ -28,18 +28,17 @@ function Products() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState(null);
+  const hasCatalog = products.length > 0;
+
+  const mediaUrl = (path) => (path ? `${API_BASE_URL}${path}` : null);
 
   const loadProducts = async () => {
     setError("");
     setIsLoading(true);
     try {
       const [productsResponse, categoriesResponse] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/products/`, {
-          headers: authHeaders(),
-        }),
-        axios.get(`${API_BASE_URL}/api/products/categories/`, {
-          headers: authHeaders(),
-        }),
+        axios.get(`${API_BASE_URL}/api/products/`),
+        axios.get(`${API_BASE_URL}/api/products/categories/`),
       ]);
       setProducts(productsResponse.data);
       setCategories(categoriesResponse.data);
@@ -91,12 +90,12 @@ function Products() {
         await axios.patch(
           `${API_BASE_URL}/api/products/${editingProductId}/`,
           formData,
-          { headers: { ...authHeaders(), "Content-Type": "multipart/form-data" } }
+          { headers: { "Content-Type": "multipart/form-data" } }
         );
         setMessage("Product updated.");
       } else {
         await axios.post(`${API_BASE_URL}/api/products/`, formData, {
-          headers: { ...authHeaders(), "Content-Type": "multipart/form-data" },
+          headers: { "Content-Type": "multipart/form-data" },
         });
         setMessage("Product added.");
       }
@@ -124,9 +123,7 @@ function Products() {
     setError("");
     setMessage("");
     try {
-      await axios.delete(`${API_BASE_URL}/api/products/${productId}/`, {
-        headers: authHeaders(),
-      });
+      await axios.delete(`${API_BASE_URL}/api/products/${productId}/`);
       setMessage("Product deleted.");
       loadProducts();
     } catch (err) {
@@ -150,8 +147,7 @@ function Products() {
     try {
       await axios.post(
         `${API_BASE_URL}/api/cart/add/`,
-        { product_id: productId, quantity: getQuantity(productId) },
-        { headers: authHeaders() }
+        { product_id: productId, quantity: getQuantity(productId) }
       );
       setMessage("Product added to cart.");
     } catch (err) {
@@ -331,7 +327,27 @@ function Products() {
         <p className="text-slate-600">Loading products...</p>
       ) : filteredProducts.length === 0 ? (
         <div className="rounded-lg bg-white p-6 shadow">
-          <p className="text-slate-600">No products found.</p>
+          {hasCatalog ? (
+            <p className="text-slate-600">
+              No products match the current search or filters.
+            </p>
+          ) : isStaff ? (
+            <>
+              <p className="text-slate-700">No products have been added yet.</p>
+              <p className="mt-2 text-sm text-slate-500">
+                Add one here or run <code>python manage.py seed_demo_catalog</code> to load
+                a demo catalog for the MySQL presentation.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-slate-700">No products are available right now.</p>
+              <p className="mt-2 text-sm text-slate-500">
+                Ask a staff user to add products or run <code>python manage.py seed_demo_catalog</code>
+                so the customer catalog has data to display.
+              </p>
+            </>
+          )}
         </div>
       ) : isStaff ? (
         // STAFF TABLE VIEW
@@ -354,10 +370,10 @@ function Products() {
                 <td className="p-3">
                   {product.image ? (
                     <img
-                      src={`http://127.0.0.1:8000${product.image}`}
+                      src={mediaUrl(product.image)}
                       alt={product.name}
                       className="h-12 w-12 cursor-pointer object-cover rounded hover:opacity-80 transition"
-                      onClick={() => setPreviewImage(`http://127.0.0.1:8000${product.image}`)}
+                      onClick={() => setPreviewImage(mediaUrl(product.image))}
                     />
                   ) : (
                     <span className="text-slate-400 text-sm">No image</span>
@@ -402,11 +418,11 @@ function Products() {
               {/* IMAGE */}
               <div
                 className="relative h-48 w-full cursor-pointer bg-slate-100"
-                onClick={() => product.image && setPreviewImage(`http://127.0.0.1:8000${product.image}`)}
+                onClick={() => product.image && setPreviewImage(mediaUrl(product.image))}
               >
                 {product.image ? (
                   <img
-                    src={`http://127.0.0.1:8000${product.image}`}
+                    src={mediaUrl(product.image)}
                     alt={product.name}
                     className="h-full w-full object-cover"
                   />
