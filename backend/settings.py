@@ -85,7 +85,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 # DATABASE
-DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite').lower()
+DB_ENGINE = os.environ.get('DB_ENGINE', 'mysql').lower()
 
 if DB_ENGINE == 'mysql':
     DATABASES = {

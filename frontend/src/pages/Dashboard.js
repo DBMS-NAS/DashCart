@@ -86,9 +86,14 @@ function Dashboard() {
             </Link>
           </>
         ) : (
-          <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/cart">
-            View Cart
-          </Link>
+          <>
+            <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/cart">
+              View Cart
+            </Link>
+            <Link className="rounded bg-emerald-700 px-4 py-2 text-white" to="/orders">
+              View Order History
+            </Link>
+          </>
         )}
       </div>
     </div>
