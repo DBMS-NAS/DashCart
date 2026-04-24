@@ -20,6 +20,13 @@ const movementInitialState = {
   quantity: "",
 };
 
+const transferInitialState = {
+  product: "",
+  source_warehouse: "",
+  destination_warehouse: "",
+  quantity: "",
+};
+
 function Inventory() {
   const [activeTab, setActiveTab] = useState("inventory");
   const [inventory, setInventory] = useState([]);
@@ -30,12 +37,14 @@ function Inventory() {
   const [storeForm, setStoreForm] = useState(storeInitialState);
   const [warehouseForm, setWarehouseForm] = useState(warehouseInitialState);
   const [movementForm, setMovementForm] = useState(movementInitialState);
+  const [transferForm, setTransferForm] = useState(transferInitialState);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingStore, setIsSavingStore] = useState(false);
   const [isSavingWarehouse, setIsSavingWarehouse] = useState(false);
   const [isSavingMovement, setIsSavingMovement] = useState(false);
+  const [isSavingTransfer, setIsSavingTransfer] = useState(false);
 
   const loadData = async () => {
     setError("");
@@ -50,7 +59,7 @@ function Inventory() {
         movementsResponse,
       ] = await Promise.all([
         axios.get(`${API_BASE_URL}/api/inventory/`),
-        axios.get(`${API_BASE_URL}/api/products/`),
+        axios.get(`${API_BASE_URL}/api/inventory/products/`),
         axios.get(`${API_BASE_URL}/api/stores/`),
         axios.get(`${API_BASE_URL}/api/stores/warehouses/`),
         axios.get(`${API_BASE_URL}/api/inventory/stock-movements/`),
@@ -82,6 +91,10 @@ function Inventory() {
 
   const handleMovementChange = (event) => {
     setMovementForm({ ...movementForm, [event.target.name]: event.target.value });
+  };
+
+  const handleTransferChange = (event) => {
+    setTransferForm({ ...transferForm, [event.target.name]: event.target.value });
   };
 
   const handleStoreSave = async (event) => {
@@ -162,6 +175,37 @@ function Inventory() {
     }
   };
 
+  const handleTransferSave = async (event) => {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setIsSavingTransfer(true);
+
+    try {
+      await axios.post(`${API_BASE_URL}/api/inventory/transfers/`, {
+        ...transferForm,
+        quantity: Number(transferForm.quantity),
+      });
+      setTransferForm(transferInitialState);
+      setMessage("Stock transferred.");
+      setActiveTab("movements");
+      await loadData();
+    } catch (err) {
+      const responseErrors = err.response?.data;
+      setError(
+        responseErrors?.detail ||
+          responseErrors?.non_field_errors?.[0] ||
+          responseErrors?.product?.[0] ||
+          responseErrors?.source_warehouse?.[0] ||
+          responseErrors?.destination_warehouse?.[0] ||
+          responseErrors?.quantity?.[0] ||
+          "Could not transfer stock."
+      );
+    } finally {
+      setIsSavingTransfer(false);
+    }
+  };
+
   const tabClass = (tabName) =>
     `rounded px-4 py-2 font-medium ${
       activeTab === tabName
@@ -228,7 +272,7 @@ function Inventory() {
           </table>
         )
       ) : activeTab === "movements" ? (
-        <div className="grid gap-6 xl:grid-cols-[360px,1fr]">
+        <div className="grid gap-6 xl:grid-cols-[360px,360px,1fr]">
           <form className="rounded-xl bg-white p-5 shadow" onSubmit={handleMovementSave}>
             <h3 className="mb-4 text-xl font-semibold">Record Stock Movement</h3>
             <select
@@ -253,7 +297,7 @@ function Inventory() {
               <option value="">Select warehouse</option>
               {warehouses.map((warehouse) => (
                 <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
-                  {warehouse.store_name} - {warehouse.location}
+                  {warehouse.store_name} - {warehouse.store_location || warehouse.location}
                 </option>
               ))}
             </select>
@@ -285,6 +329,72 @@ function Inventory() {
             {(products.length === 0 || warehouses.length === 0) && (
               <p className="mt-3 text-sm text-amber-700">
                 Add products and warehouses before recording stock movement.
+              </p>
+            )}
+          </form>
+
+          <form className="rounded-xl bg-white p-5 shadow" onSubmit={handleTransferSave}>
+            <h3 className="mb-4 text-xl font-semibold">Transfer Between Warehouses</h3>
+            <select
+              className="mb-3 w-full rounded border p-2"
+              name="product"
+              onChange={handleTransferChange}
+              value={transferForm.product}
+            >
+              <option value="">Select product</option>
+              {products.map((product) => (
+                <option key={product.product_id} value={product.product_id}>
+                  {product.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="mb-3 w-full rounded border p-2"
+              name="source_warehouse"
+              onChange={handleTransferChange}
+              value={transferForm.source_warehouse}
+            >
+              <option value="">Source warehouse</option>
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
+                  {warehouse.store_name} - {warehouse.store_location || warehouse.location}
+                </option>
+              ))}
+            </select>
+            <select
+              className="mb-3 w-full rounded border p-2"
+              name="destination_warehouse"
+              onChange={handleTransferChange}
+              value={transferForm.destination_warehouse}
+            >
+              <option value="">Destination warehouse</option>
+              {warehouses
+                .filter((warehouse) => warehouse.warehouse_id !== transferForm.source_warehouse)
+                .map((warehouse) => (
+                  <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
+                    {warehouse.store_name} - {warehouse.store_location || warehouse.location}
+                  </option>
+                ))}
+            </select>
+            <input
+              className="mb-4 w-full rounded border p-2"
+              min="1"
+              name="quantity"
+              onChange={handleTransferChange}
+              placeholder="Quantity"
+              type="number"
+              value={transferForm.quantity}
+            />
+            <button
+              className="rounded bg-blue-600 px-4 py-2 text-white disabled:bg-slate-400"
+              disabled={isSavingTransfer || products.length === 0 || warehouses.length < 2}
+              type="submit"
+            >
+              {isSavingTransfer ? "Transferring..." : "Transfer Stock"}
+            </button>
+            {(products.length === 0 || warehouses.length < 2) && (
+              <p className="mt-3 text-sm text-amber-700">
+                Add products and at least two warehouses before transferring stock.
               </p>
             )}
           </form>
@@ -405,7 +515,7 @@ function Inventory() {
                       <tr className="border-b" key={warehouse.warehouse_id}>
                         <td className="p-3">{warehouse.warehouse_id}</td>
                         <td className="p-3">{warehouse.store_name}</td>
-                        <td className="p-3">{warehouse.location}</td>
+                        <td className="p-3">{warehouse.store_location || warehouse.location}</td>
                       </tr>
                     ))}
                   </tbody>

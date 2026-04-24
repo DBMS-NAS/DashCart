@@ -8,14 +8,15 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from backend.mysql_routines import (
-    call_checkout_procedure,
     get_database_error_message,
     using_mysql,
 )
 from discounts.utils import get_effective_price
+from inventory.models import Inventory
 from orders.models import Order, OrderItem
 from payments.models import Payment
 from products.models import Product
+from stores.models import Warehouse
 from users.models import UserRole
 from users.services import get_account_role, get_or_create_database_user
 from .models import Cart, CartItem
@@ -38,7 +39,9 @@ def get_current_cart(auth_user):
 
 
 def serialize_cart(cart):
-    cart = Cart.objects.prefetch_related("items__product").get(cart_id=cart.cart_id)
+    cart = Cart.objects.prefetch_related("items__product", "items__warehouse__store").get(
+        cart_id=cart.cart_id
+    )
     return CartSerializer(cart).data
 
 
@@ -50,6 +53,23 @@ def customer_required(request):
         )
 
     return None
+
+
+def get_selected_warehouse(warehouse_id):
+    if not warehouse_id:
+        return None
+
+    try:
+        return Warehouse.objects.select_related("store").get(warehouse_id=warehouse_id)
+    except Warehouse.DoesNotExist:
+        return None
+
+
+def get_inventory_for_product(product, warehouse):
+    if warehouse is None:
+        return None
+
+    return Inventory.objects.filter(product=product, warehouse=warehouse).first()
 
 
 class CartAPI(APIView):
@@ -74,6 +94,7 @@ class AddToCartAPI(APIView):
             return permission_error
 
         product_id = request.data.get("product_id")
+        warehouse_id = request.data.get("warehouse_id")
         quantity = parse_quantity(request.data.get("quantity", 1))
 
         if quantity is None:
@@ -90,16 +111,53 @@ class AddToCartAPI(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        warehouse = get_selected_warehouse(warehouse_id)
+        if warehouse is None:
+            return Response(
+                {"detail": "Select a valid store before adding this item to cart."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        inventory = get_inventory_for_product(product, warehouse)
+        if inventory is None or inventory.quantity <= 0:
+            return Response(
+                {"detail": "This product is not available in the selected store."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         cart = get_current_cart(request.user)
         item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=product,
+            warehouse=warehouse,
             defaults={"quantity": quantity},
         )
 
         if not created:
-            item.quantity += quantity
-            item.save()
+            next_quantity = item.quantity + quantity
+            if next_quantity > inventory.quantity:
+                return Response(
+                    {
+                        "detail": (
+                            "Selected store does not have enough stock. "
+                            f"Available: {inventory.quantity}."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            item.quantity = next_quantity
+            item.save(update_fields=["quantity"])
+        elif quantity > inventory.quantity:
+            item.delete()
+            return Response(
+                {
+                    "detail": (
+                        "Selected store does not have enough stock. "
+                        f"Available: {inventory.quantity}."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(serialize_cart(cart), status=status.HTTP_201_CREATED)
 
@@ -129,8 +187,16 @@ class CartItemAPI(APIView):
         except CartItem.DoesNotExist:
             return Response({"detail": "Cart item not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        inventory = get_inventory_for_product(item.product, item.warehouse)
+        if inventory is None or quantity > inventory.quantity:
+            available = inventory.quantity if inventory else 0
+            return Response(
+                {"detail": f"Selected store only has {available} unit(s) available."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         item.quantity = quantity
-        item.save()
+        item.save(update_fields=["quantity"])
         return Response(serialize_cart(item.cart))
 
     @transaction.atomic
@@ -168,28 +234,6 @@ class CheckoutAPI(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if using_mysql():
-            try:
-                order_id = call_checkout_procedure(
-                    database_user.user_id,
-                    request.data.get("payment_method", "card"),
-                )
-            except DatabaseError as exc:
-                return Response(
-                    {"detail": get_database_error_message(exc)},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            order = Order.objects.get(order_id=order_id)
-            return Response(
-                {
-                    "order_id": order.order_id,
-                    "status": order.status,
-                    "cart": serialize_cart(cart),
-                },
-                status=status.HTTP_201_CREATED,
-            )
-
         order = Order.objects.create(
             order_id=Order.generate_order_id(),
             user=database_user,
@@ -198,12 +242,25 @@ class CheckoutAPI(APIView):
 
         try:
             for item in items:
-                OrderItem.objects.create(
+                if item.warehouse is None:
+                    raise ValidationError(
+                        f"{item.product.name} is missing a selected store. Remove it and add it again."
+                    )
+
+                inventory = get_inventory_for_product(item.product, item.warehouse)
+                if inventory is None:
+                    raise ValidationError(
+                        f"{item.product.name} is not available in the selected store."
+                    )
+
+                order_item = OrderItem(
                     order=order,
                     product=item.product,
                     quantity=item.quantity,
                     price=get_effective_price(item.product),
                 )
+                order_item._selected_warehouse = item.warehouse
+                order_item.save()
         except ValidationError as exc:
             order.delete()
             return Response(
@@ -211,17 +268,23 @@ class CheckoutAPI(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Calculate total and create a Payment record automatically
-        total = sum(
-            Decimal(item.quantity) * get_effective_price(item.product)
-            for item in items
-        )
-        Payment.objects.create(
-            order=order,
-            amount=total,
-            method=request.data.get("payment_method", "card"),
-            status="paid",
-        )
+        try:
+            total = sum(
+                Decimal(item.quantity) * get_effective_price(item.product)
+                for item in items
+            )
+            Payment.objects.create(
+                order=order,
+                amount=total,
+                method=request.data.get("payment_method", "card"),
+                status="paid",
+            )
+        except DatabaseError as exc:
+            order.delete()
+            return Response(
+                {"detail": get_database_error_message(exc) if using_mysql() else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         cart.items.all().delete()
 

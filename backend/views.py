@@ -1,13 +1,13 @@
 from decimal import Decimal
 
-from django.db.models import DecimalField, ExpressionWrapper, F, Sum
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from cart.models import Cart
 from inventory.models import Inventory
-from orders.models import Order, OrderItem
+from orders.models import Order, OrderItem, OrderItemAllocation
+from orders.query_utils import filter_orders_for_store
 from products.models import Product
 from users.models import UserRole
 from users.services import get_account_role, get_or_create_database_user
@@ -18,11 +18,14 @@ def format_currency(amount):
 
 
 def order_total(order_items):
-    line_total = ExpressionWrapper(
-        F("quantity") * F("price"),
-        output_field=DecimalField(max_digits=12, decimal_places=2),
+    return sum(Decimal(item.quantity) * item.price for item in order_items)
+
+
+def allocation_total(allocations):
+    return sum(
+        Decimal(allocation.quantity) * allocation.order_item.price
+        for allocation in allocations
     )
-    return order_items.aggregate(total=Sum(line_total))["total"] or Decimal("0.00")
 
 
 class DashboardAPI(APIView):
@@ -30,29 +33,61 @@ class DashboardAPI(APIView):
 
     def get(self, request):
         role = get_account_role(request.user)
+        profile = getattr(request.user, "account_profile", None)
+        store = profile.store if profile else None
 
         if role == UserRole.STAFF:
-            total_sales = order_total(OrderItem.objects.all())
+            if store:
+                allocations = OrderItemAllocation.objects.select_related(
+                    "order_item",
+                    "order_item__product",
+                    "warehouse",
+                ).filter(warehouse__store=store)
+                orders = filter_orders_for_store(Order.objects.all(), store)
+                products = Product.objects.filter(
+                    inventory__warehouse__store=store
+                ).distinct()
+                low_stock = Inventory.objects.filter(
+                    warehouse__store=store,
+                    quantity__lte=5,
+                )
+                sales_description = f"Revenue fulfilled by {store.name}."
+                orders_description = f"Orders fulfilled by {store.name}."
+                products_description = f"Products stocked in {store.name}."
+                low_stock_description = (
+                    f"Inventory rows in {store.name} with 5 or fewer units."
+                )
+            else:
+                order_items = OrderItem.objects.all()
+                orders = Order.objects.all()
+                products = Product.objects.all()
+                low_stock = Inventory.objects.filter(quantity__lte=5)
+                sales_description = "Revenue from all placed orders."
+                orders_description = "Total customer orders."
+                products_description = "Products stored in the database."
+                low_stock_description = "Inventory rows with 5 or fewer units."
+
+            total_sales = allocation_total(allocations) if store else order_total(order_items)
             cards = [
                 {
                     "label": "Total Sales",
                     "value": format_currency(total_sales),
-                    "description": "Revenue from all placed orders.",
+                    "description": sales_description,
                 },
                 {
                     "label": "Orders",
-                    "value": Order.objects.count(),
-                    "description": "Total customer orders.",
+                    "value": orders.count(),
+                    "description": orders_description,
                 },
                 {
                     "label": "Products",
-                    "value": Product.objects.count(),
-                    "description": "Products stored in the database.",
+                    "value": products.count(),
+                    "description": products_description,
                 },
                 {
                     "label": "Low Stock",
-                    "value": Inventory.objects.filter(quantity__lte=5).count(),
-                    "description": "Inventory rows with 5 or fewer units.",
+                    "value": low_stock.count(),
+                    "description": low_stock_description,
                 },
             ]
         else:
@@ -89,7 +124,6 @@ class DashboardAPI(APIView):
                 },
             ]
 
-        profile = getattr(request.user, "account_profile", None)
         store_name = profile.store.name if profile and profile.store else None
         store_location = profile.store.location if profile and profile.store else None
 

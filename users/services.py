@@ -26,3 +26,8 @@ def get_or_create_database_user(auth_user):
 
 def is_staff_account(auth_user):
     return get_account_role(auth_user) == UserRole.STAFF
+
+
+def get_assigned_store(auth_user):
+    profile = getattr(auth_user, "account_profile", None)
+    return profile.store if profile else None

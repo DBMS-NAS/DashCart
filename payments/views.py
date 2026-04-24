@@ -9,8 +9,9 @@ from backend.mysql_routines import (
     get_database_error_message,
     using_mysql,
 )
-from users.services import get_or_create_database_user, is_staff_account
+from users.services import get_assigned_store, get_or_create_database_user, is_staff_account
 from orders.models import Order
+from orders.query_utils import filter_orders_for_store
 from .models import Payment, Refund
 from .serializers import RefundSerializer
 
@@ -21,10 +22,14 @@ class RefundRequestAPI(APIView):
 
     def post(self, request, order_id):
         db_user = get_or_create_database_user(request.user)
+        store = get_assigned_store(request.user) if is_staff_account(request.user) else None
 
         try:
             if is_staff_account(request.user):
-                order = Order.objects.get(order_id=order_id)
+                orders = Order.objects.filter(order_id=order_id)
+                if store:
+                    orders = filter_orders_for_store(orders, store)
+                order = orders.get()
             else:
                 order = Order.objects.get(order_id=order_id, user=db_user)
         except Order.DoesNotExist:
@@ -74,7 +79,13 @@ class RefundUpdateAPI(APIView):
             )
 
         try:
-            refund = Refund.objects.get(id=refund_id)
+            refunds = Refund.objects.filter(id=refund_id)
+            store = get_assigned_store(request.user)
+            if store:
+                refunds = refunds.filter(
+                    payment__order__orderitem__allocations__warehouse__store=store
+                ).distinct()
+            refund = refunds.get()
         except Refund.DoesNotExist:
             return Response({"detail": "Refund not found."}, status=status.HTTP_404_NOT_FOUND)
 

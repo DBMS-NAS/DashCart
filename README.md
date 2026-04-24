@@ -55,3 +55,15 @@ export DB_PASSWORD=your_password
 export DB_HOST=localhost
 export DB_PORT=3306
 ```
+
+After running migrations on MySQL, load the project SQL objects from the
+top-level `sql/` folder:
+
+```bash
+python3 manage.py apply_mysql_sql
+```
+
+That command applies the trigger, function, and procedure definitions stored in:
+
+- `sql/mysql_objects.sql`
+- `sql/mysql_existing_table_objects.sql`

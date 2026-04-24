@@ -12,6 +12,7 @@ class StoreSerializer(serializers.ModelSerializer):
 
 class WarehouseSerializer(serializers.ModelSerializer):
     store_name = serializers.CharField(source="store.name", read_only=True)
+    store_location = serializers.CharField(source="store.location", read_only=True)
 
     class Meta:
         model = Warehouse
@@ -19,6 +20,7 @@ class WarehouseSerializer(serializers.ModelSerializer):
             "warehouse_id",
             "store",
             "store_name",
+            "store_location",
             "location",
         ]
-        read_only_fields = ["warehouse_id", "store_name"]
+        read_only_fields = ["warehouse_id", "store_name", "store_location"]

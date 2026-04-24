@@ -9,6 +9,10 @@ from .models import Cart, CartItem
 class CartItemSerializer(serializers.ModelSerializer):
     product_id = serializers.CharField(source="product.product_id", read_only=True)
     product_name = serializers.CharField(source="product.name", read_only=True)
+    warehouse_id = serializers.CharField(source="warehouse.warehouse_id", read_only=True)
+    warehouse_location = serializers.CharField(source="warehouse.location", read_only=True)
+    store_name = serializers.CharField(source="warehouse.store.name", read_only=True)
+    store_location = serializers.CharField(source="warehouse.store.location", read_only=True)
     price = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()
 
@@ -18,6 +22,10 @@ class CartItemSerializer(serializers.ModelSerializer):
             "id",
             "product_id",
             "product_name",
+            "warehouse_id",
+            "warehouse_location",
+            "store_name",
+            "store_location",
             "price",
             "quantity",
             "subtotal",

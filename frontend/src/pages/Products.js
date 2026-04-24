@@ -11,6 +11,7 @@ function Products() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [selectedWarehouses, setSelectedWarehouses] = useState({});
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [quantities, setQuantities] = useState({});
@@ -133,6 +134,33 @@ function Products() {
 
   const getQuantity = (productId) => quantities[productId] || 1;
 
+  const getAvailableStores = (product) => product.available_stores || [];
+
+  const getSelectedStore = (product) => {
+    const selectedWarehouseId = selectedWarehouses[product.product_id];
+    const availableStores = getAvailableStores(product);
+
+    if (!availableStores.length) {
+      return null;
+    }
+
+     if (availableStores.length > 1 && !selectedWarehouseId) {
+      return null;
+    }
+
+    return (
+      availableStores.find((store) => store.warehouse_id === selectedWarehouseId) ||
+      availableStores[0]
+    );
+  };
+
+  const getSelectedStock = (product) => getSelectedStore(product)?.stock || 0;
+
+  const handleStoreChange = (productId, warehouseId) => {
+    setSelectedWarehouses((prev) => ({ ...prev, [productId]: warehouseId }));
+    setQuantities((prev) => ({ ...prev, [productId]: 1 }));
+  };
+
   const updateQuantity = (productId, delta, max) => {
     setQuantities((prev) => {
       const current = prev[productId] || 1;
@@ -141,13 +169,24 @@ function Products() {
     });
   };
 
-  const addToCart = async (productId) => {
+  const addToCart = async (product) => {
     setError("");
     setMessage("");
+
+    const selectedStore = getSelectedStore(product);
+    if (!selectedStore) {
+      setError("Select a store with available stock first.");
+      return;
+    }
+
     try {
       await axios.post(
         `${API_BASE_URL}/api/cart/add/`,
-        { product_id: productId, quantity: getQuantity(productId) }
+        {
+          product_id: product.product_id,
+          warehouse_id: selectedStore.warehouse_id,
+          quantity: getQuantity(product.product_id),
+        }
       );
       setMessage("Product added to cart.");
     } catch (err) {
@@ -165,6 +204,9 @@ function Products() {
       product.brand_name?.toLowerCase().includes(q) ||
       productCategories.some((category) => category.toLowerCase().includes(q)) ||
       product.store_name?.toLowerCase().includes(q) ||
+      getAvailableStores(product).some((store) =>
+        `${store.store_name} ${store.store_location}`.toLowerCase().includes(q)
+      ) ||
       product.discount_name?.toLowerCase().includes(q);
 
     const matchesCategory =
@@ -415,6 +457,13 @@ function Products() {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((product) => (
             <div key={product.product_id} className="flex flex-col rounded-xl bg-white shadow hover:shadow-lg transition overflow-hidden">
+              {(() => {
+                const selectedStore = getSelectedStore(product);
+                const selectedStock = getSelectedStock(product);
+                const availableStores = getAvailableStores(product);
+
+                return (
+                  <>
               {/* IMAGE */}
               <div
                 className="relative h-48 w-full cursor-pointer bg-slate-100"
@@ -443,7 +492,30 @@ function Products() {
                 <p className="mt-1 text-xs font-medium text-blue-600">
                   {product.category_names?.join(", ") || "Uncategorized"}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">{product.store_name}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {selectedStore
+                    ? `${selectedStore.store_name} • ${selectedStore.store_location}`
+                    : availableStores.length > 1
+                      ? "Select a store before adding to cart"
+                      : "No store available"}
+                </p>
+
+                {availableStores.length > 1 && (
+                  <select
+                    className="mt-3 rounded-lg border bg-white p-2 text-sm"
+                    onChange={(event) =>
+                      handleStoreChange(product.product_id, event.target.value)
+                    }
+                    value={selectedStore?.warehouse_id || ""}
+                  >
+                    <option value="">Select store</option>
+                    {availableStores.map((store) => (
+                      <option key={store.warehouse_id} value={store.warehouse_id}>
+                        {store.store_name} - {store.store_location} ({store.stock} left)
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 {/* PRICE + STOCK ON SAME LINE */}
                 <div className="mt-2 flex items-center justify-between">
@@ -458,18 +530,18 @@ function Products() {
                     )}
                   </div>
                   <span className={`text-xs font-medium ${
-                    product.stock <= 0 ? "text-red-500" :
-                    product.stock <= 5 ? "text-orange-500" :
+                    selectedStock <= 0 ? "text-red-500" :
+                    selectedStock <= 5 ? "text-orange-500" :
                     "text-green-600"
                   }`}>
-                    {product.stock <= 0 ? "Out of Stock" : `${product.stock} left`}
+                    {selectedStock <= 0 ? "Out of Stock" : `${selectedStock} left`}
                   </span>
                 </div>
 
                 {/* QUANTITY SELECTOR */}
                 <div className="mt-3 flex items-center justify-between rounded-lg border p-1">
                   <button
-                    onClick={() => updateQuantity(product.product_id, -1, product.stock)}
+                    onClick={() => updateQuantity(product.product_id, -1, selectedStock)}
                     className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
                     disabled={getQuantity(product.product_id) <= 1}
                     type="button"
@@ -478,9 +550,9 @@ function Products() {
                   </button>
                   <span className="font-semibold">{getQuantity(product.product_id)}</span>
                   <button
-                    onClick={() => updateQuantity(product.product_id, 1, product.stock)}
+                    onClick={() => updateQuantity(product.product_id, 1, selectedStock)}
                     className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
-                    disabled={getQuantity(product.product_id) >= product.stock}
+                    disabled={getQuantity(product.product_id) >= selectedStock}
                     type="button"
                   >
                     +
@@ -489,13 +561,20 @@ function Products() {
 
                 <button
                   className="mt-3 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-                  disabled={product.stock <= 0}
-                  onClick={() => addToCart(product.product_id)}
+                  disabled={!selectedStore || selectedStock <= 0}
+                  onClick={() => addToCart(product)}
                   type="button"
                 >
-                  {product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
+                  {!selectedStore && availableStores.length > 1
+                    ? "Select Store"
+                    : selectedStock <= 0
+                      ? "Out of Stock"
+                      : "Add to Cart"}
                 </button>
               </div>
+                  </>
+                );
+              })()}
             </div>
           ))}
         </div>

@@ -1,6 +1,15 @@
 from rest_framework import serializers
 
+from products.models import Product
+from stores.models import Warehouse
+
 from .models import Inventory, StockMovement
+
+
+class InventoryProductOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["product_id", "name"]
 
 
 class InventorySerializer(serializers.ModelSerializer):
@@ -66,3 +75,22 @@ class StockMovementSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("Quantity must be greater than zero.")
         return value
+
+
+class StockTransferSerializer(serializers.Serializer):
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    source_warehouse = serializers.PrimaryKeyRelatedField(
+        queryset=Warehouse.objects.select_related("store").all()
+    )
+    destination_warehouse = serializers.PrimaryKeyRelatedField(
+        queryset=Warehouse.objects.select_related("store").all()
+    )
+    quantity = serializers.IntegerField(min_value=1)
+
+    def validate(self, attrs):
+        if attrs["source_warehouse"] == attrs["destination_warehouse"]:
+            raise serializers.ValidationError(
+                "Source and destination warehouses must be different."
+            )
+
+        return attrs

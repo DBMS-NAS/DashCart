@@ -1,4 +1,4 @@
-USE dashcart;
+-- MySQL routines and trigger for order auditing and low-stock reporting.
 
 CREATE TABLE IF NOT EXISTS order_status_audit (
     audit_id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -51,14 +51,3 @@ BEGIN
 END//
 
 DELIMITER ;
-
-SHOW TRIGGERS;
-SHOW FUNCTION STATUS WHERE Db = 'dashcart';
-SHOW PROCEDURE STATUS WHERE Db = 'dashcart';
-SHOW CREATE TRIGGER trg_order_status_audit;
-SHOW CREATE FUNCTION fn_total_stock;
-SHOW CREATE PROCEDURE sp_low_stock_products;
-
-
-
-

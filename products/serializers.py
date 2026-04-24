@@ -25,6 +25,7 @@ class ProductSerializer(serializers.ModelSerializer):
     brand_name = serializers.CharField(source="brand.name", read_only=True)
     stock = serializers.SerializerMethodField()
     store_name = serializers.SerializerMethodField()
+    available_stores = serializers.SerializerMethodField()
     category_ids = serializers.SerializerMethodField()
     category_names = serializers.SerializerMethodField()
     discount_percent = serializers.SerializerMethodField()
@@ -42,6 +43,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "brand_name",
             "stock",
             "store_name",
+            "available_stores",
             "category_ids",
             "category_names",
             "image",
@@ -51,20 +53,48 @@ class ProductSerializer(serializers.ModelSerializer):
             "average_rating",
         ]
 
+    def _get_inventory_queryset(self, obj):
+        inventory = Inventory.objects.filter(product=obj).select_related("warehouse__store")
+        store = self.context.get("store")
+        if store:
+            inventory = inventory.filter(warehouse__store=store)
+        return inventory
+
     def get_stock(self, obj):
-        if using_mysql():
+        if using_mysql() and not self.context.get("store"):
             return get_total_inventory_value(obj.product_id)
 
         return sum(
             inventory.quantity
-            for inventory in Inventory.objects.filter(product=obj)
+            for inventory in self._get_inventory_queryset(obj)
         )
 
     def get_store_name(self, obj):
-        inventory = Inventory.objects.filter(product=obj).select_related("warehouse__store").first()
+        store = self.context.get("store")
+        if store:
+            return store.name
+
+        inventories = list(self._get_inventory_queryset(obj))
+        if len(inventories) > 1:
+            return f"{len(inventories)} stores"
+
+        inventory = inventories[0] if inventories else None
         if inventory and inventory.warehouse and inventory.warehouse.store:
             return inventory.warehouse.store.name
         return "Unknown store"
+
+    def get_available_stores(self, obj):
+        return [
+            {
+                "warehouse_id": inventory.warehouse.warehouse_id,
+                "warehouse_location": inventory.warehouse.location,
+                "store_id": inventory.warehouse.store.store_id,
+                "store_name": inventory.warehouse.store.name,
+                "store_location": inventory.warehouse.store.location,
+                "stock": inventory.quantity,
+            }
+            for inventory in self._get_inventory_queryset(obj).filter(quantity__gt=0)
+        ]
 
     def _get_product_categories(self, obj):
         prefetched = getattr(obj, "_prefetched_objects_cache", {}).get(

@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from inventory.models import Inventory
 from stores.models import Store, Warehouse
-from users.services import is_staff_account
+from users.services import get_assigned_store, is_staff_account
 from .models import Brand, Category, Product, ProductCategory
 from .serializers import CategorySerializer, ProductSerializer
 
@@ -101,13 +101,18 @@ class ProductListAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        store = get_assigned_store(request.user) if is_staff_account(request.user) else None
         products = (
             Product.objects.select_related("brand")
             .prefetch_related("productcategory_set__category")
             .all()
             .order_by("name")
         )
-        serializer = ProductSerializer(products, many=True)
+
+        if store:
+            products = products.filter(inventory__warehouse__store=store).distinct()
+
+        serializer = ProductSerializer(products, many=True, context={"store": store})
         return Response(serializer.data)
 
     @transaction.atomic
@@ -144,18 +149,30 @@ class ProductListAPI(APIView):
         set_product_category(product, category_name)
         set_product_stock(product, stock, request.user)
 
-        return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
+        return Response(
+            ProductSerializer(
+                product,
+                context={"store": get_assigned_store(request.user)},
+            ).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ProductDetailAPI(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_product(self, product_id):
-        return (
+    def get_product(self, product_id, request):
+        products = (
             Product.objects.select_related("brand")
             .prefetch_related("productcategory_set__category")
-            .get(product_id=product_id)
+            .filter(product_id=product_id)
         )
+
+        store = get_assigned_store(request.user) if is_staff_account(request.user) else None
+        if store:
+            products = products.filter(inventory__warehouse__store=store).distinct()
+
+        return products.get()
 
     @transaction.atomic
     def patch(self, request, product_id):
@@ -166,7 +183,7 @@ class ProductDetailAPI(APIView):
             )
 
         try:
-            product = self.get_product(product_id)
+            product = self.get_product(product_id, request)
         except Product.DoesNotExist:
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -203,7 +220,12 @@ class ProductDetailAPI(APIView):
                 return Response({"stock": ["Enter a valid non-negative stock quantity."]}, status=400)
             set_product_stock(product, stock, request.user)
 
-        return Response(ProductSerializer(product).data)
+        return Response(
+            ProductSerializer(
+                product,
+                context={"store": get_assigned_store(request.user)},
+            ).data
+        )
 
     @transaction.atomic
     def delete(self, request, product_id):
@@ -214,7 +236,7 @@ class ProductDetailAPI(APIView):
             )
 
         try:
-            product = self.get_product(product_id)
+            product = self.get_product(product_id, request)
         except Product.DoesNotExist:
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
