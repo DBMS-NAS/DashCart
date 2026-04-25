@@ -144,7 +144,7 @@ function Products() {
       return null;
     }
 
-     if (availableStores.length > 1 && !selectedWarehouseId) {
+    if (availableStores.length > 1 && !selectedWarehouseId) {
       return null;
     }
 
@@ -224,7 +224,6 @@ function Products() {
       {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
       {message && <p className="mb-4 rounded bg-green-50 p-3 text-green-700">{message}</p>}
 
-      {/* IMAGE PREVIEW MODAL */}
       {previewImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70"
@@ -241,7 +240,7 @@ function Products() {
               className="absolute -top-3 -right-3 rounded-full bg-white px-2 py-1 text-sm font-bold shadow"
               type="button"
             >
-              ✕
+              x
             </button>
           </div>
         </div>
@@ -294,8 +293,7 @@ function Products() {
         </div>
       )}
 
-      {/* SEARCH AND PRICE FILTER */}
-      <div className="mb-6 flex gap-3 items-center">
+      <div className="mb-6 flex items-center gap-3">
         <input
           type="text"
           placeholder="Search by product, brand, category, store or discount..."
@@ -318,45 +316,57 @@ function Products() {
         <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2">
           <button
             onClick={() => setMinPrice((prev) => Math.max(0, (parseFloat(prev) || 0) - 1).toString())}
-            className="text-slate-500 hover:text-slate-900 font-bold"
+            className="font-bold text-slate-500 hover:text-slate-900"
             type="button"
-          >−</button>
+          >
+            -
+          </button>
           <input
             type="number"
             placeholder="Min"
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value)}
-            className="w-16 text-center outline-none text-sm"
+            className="w-16 text-center text-sm outline-none"
           />
           <button
             onClick={() => setMinPrice((prev) => ((parseFloat(prev) || 0) + 1).toString())}
-            className="text-slate-500 hover:text-slate-900 font-bold"
+            className="font-bold text-slate-500 hover:text-slate-900"
             type="button"
-          >+</button>
+          >
+            +
+          </button>
         </div>
-        <span className="text-slate-400 font-medium">—</span>
+        <span className="font-medium text-slate-400">-</span>
         <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2">
           <button
             onClick={() => setMaxPrice((prev) => Math.max(0, (parseFloat(prev) || 0) - 1).toString())}
-            className="text-slate-500 hover:text-slate-900 font-bold"
+            className="font-bold text-slate-500 hover:text-slate-900"
             type="button"
-          >−</button>
+          >
+            -
+          </button>
           <input
             type="number"
             placeholder="Max"
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
-            className="w-16 text-center outline-none text-sm"
+            className="w-16 text-center text-sm outline-none"
           />
           <button
             onClick={() => setMaxPrice((prev) => ((parseFloat(prev) || 0) + 1).toString())}
-            className="text-slate-500 hover:text-slate-900 font-bold"
+            className="font-bold text-slate-500 hover:text-slate-900"
             type="button"
-          >+</button>
+          >
+            +
+          </button>
         </div>
         {(minPrice || maxPrice || categoryFilter) && (
           <button
-            onClick={() => { setMinPrice(""); setMaxPrice(""); setCategoryFilter(""); }}
+            onClick={() => {
+              setMinPrice("");
+              setMaxPrice("");
+              setCategoryFilter("");
+            }}
             className="rounded-lg bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
             type="button"
           >
@@ -392,7 +402,6 @@ function Products() {
           )}
         </div>
       ) : isStaff ? (
-        // STAFF TABLE VIEW
         <table className="w-full rounded-lg bg-white shadow">
           <thead className="bg-gray-200">
             <tr>
@@ -414,11 +423,11 @@ function Products() {
                     <img
                       src={mediaUrl(product.image)}
                       alt={product.name}
-                      className="h-12 w-12 cursor-pointer object-cover rounded hover:opacity-80 transition"
+                      className="h-12 w-12 cursor-pointer rounded object-cover transition hover:opacity-80"
                       onClick={() => setPreviewImage(mediaUrl(product.image))}
                     />
                   ) : (
-                    <span className="text-slate-400 text-sm">No image</span>
+                    <span className="text-sm text-slate-400">No image</span>
                   )}
                 </td>
                 <td className="p-3">
@@ -453,10 +462,9 @@ function Products() {
           </tbody>
         </table>
       ) : (
-        // CUSTOMER CARD VIEW
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((product) => (
-            <div key={product.product_id} className="flex flex-col rounded-xl bg-white shadow hover:shadow-lg transition overflow-hidden">
+            <div key={product.product_id} className="flex flex-col overflow-hidden rounded-xl bg-white shadow transition hover:shadow-lg">
               {(() => {
                 const selectedStore = getSelectedStore(product);
                 const selectedStock = getSelectedStock(product);
@@ -464,114 +472,114 @@ function Products() {
 
                 return (
                   <>
-              {/* IMAGE */}
-              <div
-                className="relative h-48 w-full cursor-pointer bg-slate-100"
-                onClick={() => product.image && setPreviewImage(mediaUrl(product.image))}
-              >
-                {product.image ? (
-                  <img
-                    src={mediaUrl(product.image)}
-                    alt={product.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-slate-400 text-sm">No image</div>
-                )}
-                {product.discount_name && (
-                  <span className="absolute top-2 left-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
-                    {product.discount_percent}% OFF
-                  </span>
-                )}
-              </div>
+                    <div
+                      className="relative h-48 w-full cursor-pointer bg-slate-100"
+                      onClick={() => product.image && setPreviewImage(mediaUrl(product.image))}
+                    >
+                      {product.image ? (
+                        <img
+                          src={mediaUrl(product.image)}
+                          alt={product.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-sm text-slate-400">No image</div>
+                      )}
+                      {product.discount_name && (
+                        <span className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                          {product.discount_percent}% OFF
+                        </span>
+                      )}
+                    </div>
 
-              {/* DETAILS */}
-              <div className="flex flex-1 flex-col p-4">
-                <p className="text-xs text-slate-400">{product.brand_name}</p>
-                <h3 className="mt-1 font-semibold text-slate-900">{product.name}</h3>
-                <p className="mt-1 text-xs font-medium text-blue-600">
-                  {product.category_names?.join(", ") || "Uncategorized"}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {selectedStore
-                    ? `${selectedStore.store_name} • ${selectedStore.store_location}`
-                    : availableStores.length > 1
-                      ? "Select a store before adding to cart"
-                      : "No store available"}
-                </p>
+                    <div className="flex flex-1 flex-col p-4">
+                      <p className="text-xs text-slate-400">{product.brand_name}</p>
+                      <h3 className="mt-1 font-semibold text-slate-900">{product.name}</h3>
+                      <p className="mt-1 text-xs font-medium text-blue-600">
+                        {product.category_names?.join(", ") || "Uncategorized"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {selectedStore
+                          ? `${selectedStore.store_name} - ${selectedStore.store_location}`
+                          : availableStores.length > 1
+                            ? "Select a store before adding to cart"
+                            : "No store available"}
+                      </p>
 
-                {availableStores.length > 1 && (
-                  <select
-                    className="mt-3 rounded-lg border bg-white p-2 text-sm"
-                    onChange={(event) =>
-                      handleStoreChange(product.product_id, event.target.value)
-                    }
-                    value={selectedStore?.warehouse_id || ""}
-                  >
-                    <option value="">Select store</option>
-                    {availableStores.map((store) => (
-                      <option key={store.warehouse_id} value={store.warehouse_id}>
-                        {store.store_name} - {store.store_location} ({store.stock} left)
-                      </option>
-                    ))}
-                  </select>
-                )}
+                      {availableStores.length > 1 && (
+                        <select
+                          className="mt-3 rounded-lg border bg-white p-2 text-sm"
+                          onChange={(event) =>
+                            handleStoreChange(product.product_id, event.target.value)
+                          }
+                          value={selectedStore?.warehouse_id || ""}
+                        >
+                          <option value="">Select store</option>
+                          {availableStores.map((store) => (
+                            <option key={store.warehouse_id} value={store.warehouse_id}>
+                              {store.store_name} - {store.store_location} ({store.stock} left)
+                            </option>
+                          ))}
+                        </select>
+                      )}
 
-                {/* PRICE + STOCK ON SAME LINE */}
-                <div className="mt-2 flex items-center justify-between">
-                  <div>
-                    {product.discounted_price ? (
-                      <div>
-                        <span className="mr-1 text-sm text-slate-400 line-through">${product.price}</span>
-                        <span className="text-lg font-bold text-red-600">${product.discounted_price}</span>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div>
+                          {product.discounted_price ? (
+                            <div>
+                              <span className="mr-1 text-sm text-slate-400 line-through">${product.price}</span>
+                              <span className="text-lg font-bold text-red-600">${product.discounted_price}</span>
+                            </div>
+                          ) : (
+                            <span className="text-lg font-bold text-slate-900">${product.price}</span>
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs font-medium ${
+                            selectedStock <= 0
+                              ? "text-red-500"
+                              : selectedStock <= 5
+                                ? "text-orange-500"
+                                : "text-green-600"
+                          }`}
+                        >
+                          {selectedStock <= 0 ? "Out of Stock" : `${selectedStock} left`}
+                        </span>
                       </div>
-                    ) : (
-                      <span className="text-lg font-bold text-slate-900">${product.price}</span>
-                    )}
-                  </div>
-                  <span className={`text-xs font-medium ${
-                    selectedStock <= 0 ? "text-red-500" :
-                    selectedStock <= 5 ? "text-orange-500" :
-                    "text-green-600"
-                  }`}>
-                    {selectedStock <= 0 ? "Out of Stock" : `${selectedStock} left`}
-                  </span>
-                </div>
 
-                {/* QUANTITY SELECTOR */}
-                <div className="mt-3 flex items-center justify-between rounded-lg border p-1">
-                  <button
-                    onClick={() => updateQuantity(product.product_id, -1, selectedStock)}
-                    className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
-                    disabled={getQuantity(product.product_id) <= 1}
-                    type="button"
-                  >
-                    −
-                  </button>
-                  <span className="font-semibold">{getQuantity(product.product_id)}</span>
-                  <button
-                    onClick={() => updateQuantity(product.product_id, 1, selectedStock)}
-                    className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
-                    disabled={getQuantity(product.product_id) >= selectedStock}
-                    type="button"
-                  >
-                    +
-                  </button>
-                </div>
+                      <div className="mt-3 flex items-center justify-between rounded-lg border p-1">
+                        <button
+                          onClick={() => updateQuantity(product.product_id, -1, selectedStock)}
+                          className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
+                          disabled={getQuantity(product.product_id) <= 1}
+                          type="button"
+                        >
+                          -
+                        </button>
+                        <span className="font-semibold">{getQuantity(product.product_id)}</span>
+                        <button
+                          onClick={() => updateQuantity(product.product_id, 1, selectedStock)}
+                          className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
+                          disabled={getQuantity(product.product_id) >= selectedStock}
+                          type="button"
+                        >
+                          +
+                        </button>
+                      </div>
 
-                <button
-                  className="mt-3 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-                  disabled={!selectedStore || selectedStock <= 0}
-                  onClick={() => addToCart(product)}
-                  type="button"
-                >
-                  {!selectedStore && availableStores.length > 1
-                    ? "Select Store"
-                    : selectedStock <= 0
-                      ? "Out of Stock"
-                      : "Add to Cart"}
-                </button>
-              </div>
+                      <button
+                        className="mt-3 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        disabled={!selectedStore || selectedStock <= 0}
+                        onClick={() => addToCart(product)}
+                        type="button"
+                      >
+                        {!selectedStore && availableStores.length > 1
+                          ? "Select Store"
+                          : selectedStock <= 0
+                            ? "Out of Stock"
+                            : "Add to Cart"}
+                      </button>
+                    </div>
                   </>
                 );
               })()}

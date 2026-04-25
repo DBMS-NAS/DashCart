@@ -31,31 +31,28 @@ function Login() {
       });
 
       navigate("/dashboard");
-
     } catch (err) {
-      setError("Invalid username or password ❌");
+      setError("Invalid username or password.");
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded shadow-md w-80">
-
-        <h2 className="text-2xl font-bold mb-4 text-center">
+    <div className="flex h-screen items-center justify-center bg-gray-100">
+      <div className="w-80 rounded bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-center text-2xl font-bold">
           Login
         </h2>
 
         <form onSubmit={handleLogin}>
-
           <input
-            className="w-full p-2 border mb-3"
+            className="mb-3 w-full border p-2"
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
 
           <input
-            className="w-full p-2 border mb-3"
+            className="mb-3 w-full border p-2"
             type="password"
             placeholder="Password"
             value={password}
@@ -63,18 +60,17 @@ function Login() {
           />
 
           {error && (
-            <p className="text-red-500 text-sm mb-2">
+            <p className="mb-2 text-sm text-red-500">
               {error}
             </p>
           )}
 
           <button
-            className="w-full bg-blue-500 text-white p-2 rounded"
+            className="w-full rounded bg-blue-500 p-2 text-white"
             type="submit"
           >
             Login
           </button>
-
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-600">
@@ -83,7 +79,6 @@ function Login() {
             Create one
           </Link>
         </p>
-
       </div>
     </div>
   );

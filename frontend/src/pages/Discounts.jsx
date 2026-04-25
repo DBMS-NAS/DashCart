@@ -43,7 +43,8 @@ function Discounts() {
   }, [isStaff]);
 
   const handleCreate = async () => {
-    setError(""); setMessage("");
+    setError("");
+    setMessage("");
     try {
       await axios.post(`${API_BASE_URL}/api/discounts/`, form);
       setMessage("Discount created.");
@@ -56,7 +57,8 @@ function Discounts() {
   };
 
   const handleDelete = async (discountId) => {
-    setError(""); setMessage("");
+    setError("");
+    setMessage("");
     try {
       await axios.delete(`${API_BASE_URL}/api/discounts/${discountId}/`);
       setMessage("Discount deleted.");
@@ -67,7 +69,8 @@ function Discounts() {
   };
 
   const handleAssign = async () => {
-    setError(""); setMessage("");
+    setError("");
+    setMessage("");
     try {
       await axios.post(`${API_BASE_URL}/api/discounts/assign/`, assignForm);
       setMessage("Discount assigned to product.");
@@ -79,7 +82,8 @@ function Discounts() {
   };
 
   const handleRemove = async (productId, discountId) => {
-    setError(""); setMessage("");
+    setError("");
+    setMessage("");
     try {
       await axios.delete(`${API_BASE_URL}/api/discounts/assign/`, {
         data: { product_id: productId, discount_id: discountId },
@@ -101,7 +105,7 @@ function Discounts() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {discounts.map((d) => (
               <div key={d.discount_id} className="rounded-xl bg-white p-4 shadow">
-                <span className="inline-block mb-2 rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
+                <span className="mb-2 inline-block rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
                   {d.discount_percent}% OFF
                 </span>
                 <h3 className="font-semibold text-slate-800">{d.name}</h3>
@@ -122,14 +126,20 @@ function Discounts() {
 
       <div className="mb-4 flex gap-2">
         <button
-          onClick={() => { setShowForm(!showForm); setShowAssign(false); }}
+          onClick={() => {
+            setShowForm(!showForm);
+            setShowAssign(false);
+          }}
           className="rounded bg-blue-500 px-4 py-2 text-white"
           type="button"
         >
           + New Discount
         </button>
         <button
-          onClick={() => { setShowAssign(!showAssign); setShowForm(false); }}
+          onClick={() => {
+            setShowAssign(!showAssign);
+            setShowForm(false);
+          }}
           className="rounded bg-purple-500 px-4 py-2 text-white"
           type="button"
         >
@@ -138,23 +148,23 @@ function Discounts() {
       </div>
 
       {showForm && (
-        <div className="mb-6 rounded bg-white p-4 shadow space-y-2">
-          <h3 className="font-semibold text-slate-700 mb-2">New Discount</h3>
+        <div className="mb-6 space-y-2 rounded bg-white p-4 shadow">
+          <h3 className="mb-2 font-semibold text-slate-700">New Discount</h3>
           <input
             type="text"
             placeholder="Discount name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="mr-2 border p-2 rounded"
+            className="mr-2 rounded border p-2"
           />
           <input
             type="number"
             placeholder="Percent (e.g. 10)"
             value={form.discount_percent}
             onChange={(e) => setForm({ ...form, discount_percent: e.target.value })}
-            className="mr-2 w-36 border p-2 rounded"
+            className="mr-2 w-36 rounded border p-2"
           />
-          <div className="flex gap-2 mt-2">
+          <div className="mt-2 flex gap-2">
             <button onClick={handleCreate} className="rounded bg-green-500 px-4 py-2 text-white" type="button">
               Save
             </button>
@@ -166,12 +176,12 @@ function Discounts() {
       )}
 
       {showAssign && (
-        <div className="mb-6 rounded bg-white p-4 shadow space-y-2">
-          <h3 className="font-semibold text-slate-700 mb-2">Assign Discount to Product</h3>
+        <div className="mb-6 space-y-2 rounded bg-white p-4 shadow">
+          <h3 className="mb-2 font-semibold text-slate-700">Assign Discount to Product</h3>
           <select
             value={assignForm.product_id}
             onChange={(e) => setAssignForm({ ...assignForm, product_id: e.target.value })}
-            className="mr-2 border p-2 rounded"
+            className="mr-2 rounded border p-2"
           >
             <option value="">Select product...</option>
             {products.map((p) => (
@@ -183,7 +193,7 @@ function Discounts() {
           <select
             value={assignForm.discount_id}
             onChange={(e) => setAssignForm({ ...assignForm, discount_id: e.target.value })}
-            className="mr-2 border p-2 rounded"
+            className="mr-2 rounded border p-2"
           >
             <option value="">Select discount...</option>
             {discounts.map((d) => (
@@ -192,7 +202,7 @@ function Discounts() {
               </option>
             ))}
           </select>
-          <div className="flex gap-2 mt-2">
+          <div className="mt-2 flex gap-2">
             <button onClick={handleAssign} className="rounded bg-green-500 px-4 py-2 text-white" type="button">
               Assign
             </button>
@@ -235,10 +245,10 @@ function Discounts() {
                           {p.name}
                           <button
                             onClick={() => handleRemove(p.product_id, d.discount_id)}
-                            className="ml-1 text-red-400 hover:text-red-600 font-bold"
+                            className="ml-1 font-bold text-red-400 hover:text-red-600"
                             type="button"
                           >
-                            ✕
+                            x
                           </button>
                         </span>
                       ))}
@@ -250,7 +260,7 @@ function Discounts() {
                 <td className="p-3">
                   <button
                     onClick={() => handleDelete(d.discount_id)}
-                    className="rounded bg-red-500 px-3 py-1 text-white text-sm"
+                    className="rounded bg-red-500 px-3 py-1 text-sm text-white"
                     type="button"
                   >
                     Delete
