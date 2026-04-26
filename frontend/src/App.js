@@ -7,10 +7,13 @@ import Discounts from "./pages/Discounts";
 import Inventory from "./pages/Inventory";
 import Login from "./pages/Login";
 import Orders from "./pages/Orders";
+import OrderSuccess from "./pages/OrderSuccess";
+import ProductDetails from "./pages/ProductDetails";
 import Products from "./pages/Products";
 import Register from "./pages/Register";
 import Reviews from "./pages/Reviews";
 import Suppliers from "./pages/Suppliers";
+import Wishlist from "./pages/Wishlist";
 
 function AppLayout({ children }) {
   return (
@@ -49,11 +52,31 @@ function App() {
           }
         />
         <Route
+          path="/products/:productId"
+          element={
+            <ProtectedRoute allowedRoles={["customer", "staff"]}>
+              <AppLayout>
+                <ProductDetails />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/orders"
           element={
             <ProtectedRoute allowedRoles={["customer", "staff"]}>
               <AppLayout>
                 <Orders />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders/success"
+          element={
+            <ProtectedRoute allowedRoles={["customer"]}>
+              <AppLayout>
+                <OrderSuccess />
               </AppLayout>
             </ProtectedRoute>
           }
@@ -74,6 +97,16 @@ function App() {
             <ProtectedRoute allowedRoles={["customer"]}>
               <AppLayout>
                 <Cart />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wishlist"
+          element={
+            <ProtectedRoute allowedRoles={["customer"]}>
+              <AppLayout>
+                <Wishlist />
               </AppLayout>
             </ProtectedRoute>
           }

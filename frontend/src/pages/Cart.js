@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "../utils/axiosInstance";
 import { API_BASE_URL } from "../utils/api";
 
 function Cart() {
+  const navigate = useNavigate();
   const [cart, setCart] = useState({ items: [], item_count: 0, total: "0.00" });
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const loadCart = async () => {
     setError("");
@@ -56,13 +59,24 @@ function Cart() {
   const checkout = async () => {
     setError("");
     setMessage("");
+    setIsCheckingOut(true);
 
     try {
+      const cartSnapshot = cart;
       const response = await axios.post(`${API_BASE_URL}/api/cart/checkout/`, {});
       setCart(response.data.cart);
-      setMessage(`Order ${response.data.order_id} placed successfully.`);
+      navigate("/orders/success", {
+        state: {
+          ...response.data,
+          items: cartSnapshot.items,
+          total: response.data.total || cartSnapshot.total,
+          item_count: response.data.item_count || cartSnapshot.item_count,
+        },
+      });
     } catch (err) {
       setError(err.response?.data?.detail || "Could not place order.");
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -80,6 +94,12 @@ function Cart() {
       {cart.items.length === 0 ? (
         <div className="rounded-lg bg-white p-6 shadow">
           <p className="text-slate-600">Your cart is empty. Add products to begin checkout.</p>
+          <Link
+            className="mt-4 inline-flex rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            to="/products"
+          >
+            Browse Products
+          </Link>
         </div>
       ) : (
         <>
@@ -132,11 +152,12 @@ function Cart() {
               <p className="text-2xl font-bold">${cart.total}</p>
             </div>
             <button
-              className="rounded bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+              className="rounded bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               onClick={checkout}
+              disabled={isCheckingOut}
               type="button"
             >
-              Place Order
+              {isCheckingOut ? "Placing Order..." : "Place Order"}
             </button>
           </div>
         </>

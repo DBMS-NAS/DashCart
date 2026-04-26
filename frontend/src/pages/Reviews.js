@@ -10,6 +10,14 @@ const initialReviewForm = {
   comment: "",
 };
 
+const STAR_LABELS = {
+  1: "Poor",
+  2: "Fair",
+  3: "Good",
+  4: "Very Good",
+  5: "Excellent",
+};
+
 function StarRating({ rating }) {
   const value = Number(rating);
 
@@ -18,6 +26,43 @@ function StarRating({ rating }) {
       {"★".repeat(value)}
       <span className="text-slate-300">{"★".repeat(5 - value)}</span>
     </span>
+  );
+}
+
+function StarPicker({ rating, onChange }) {
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const activeRating = hoveredRating || Number(rating);
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-1"
+        onMouseLeave={() => setHoveredRating(0)}
+      >
+        {[1, 2, 3, 4, 5].map((value) => {
+          const filled = value <= activeRating;
+
+          return (
+            <button
+              type="button"
+              key={value}
+              aria-label={`Rate ${value} star${value === 1 ? "" : "s"}`}
+              aria-pressed={Number(rating) === value}
+              className={`text-3xl leading-none transition ${
+                filled ? "text-amber-500" : "text-slate-300"
+              } hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-300`}
+              onClick={() => onChange(String(value))}
+              onMouseEnter={() => setHoveredRating(value)}
+            >
+              ★
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-sm font-medium text-slate-600">
+        {activeRating} / 5 · {STAR_LABELS[activeRating]}
+      </p>
+    </div>
   );
 }
 
@@ -120,18 +165,16 @@ function Reviews() {
                   </option>
                 ))}
               </select>
-              <select
-                className="mb-3 w-full rounded border p-2"
-                name="rating"
-                onChange={handleChange}
-                value={form.rating}
-              >
-                <option value="5">5 stars</option>
-                <option value="4">4 stars</option>
-                <option value="3">3 stars</option>
-                <option value="2">2 stars</option>
-                <option value="1">1 star</option>
-              </select>
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">Your rating</p>
+                <p className="mb-3 text-sm text-slate-500">
+                  Tap the stars to choose your rating.
+                </p>
+                <StarPicker
+                  rating={form.rating}
+                  onChange={(rating) => setForm({ ...form, rating })}
+                />
+              </div>
               <textarea
                 className="mb-4 w-full rounded border p-2"
                 name="comment"

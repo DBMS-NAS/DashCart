@@ -46,6 +46,14 @@ function Sidebar() {
           </li>
         )}
 
+        {isCustomer && (
+          <li>
+            <Link to="/wishlist" className="block rounded p-2 hover:bg-slate-700">
+              Wishlist
+            </Link>
+          </li>
+        )}
+
         <li>
           <Link to="/orders" className="block rounded p-2 hover:bg-slate-700">
             {isCustomer ? "Order History" : "Orders"}
