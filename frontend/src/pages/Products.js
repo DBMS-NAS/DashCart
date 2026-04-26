@@ -1,8 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 
+import CustomerProductCard from "../components/CustomerProductCard";
 import { API_BASE_URL } from "../utils/api";
 import { getCurrentUser } from "../utils/auth";
+
+const initialProductForm = {
+  name: "",
+  brand_name: "",
+  category_name: "",
+  price: "",
+  stock: "",
+  image: null,
+};
+
+function getEffectivePrice(product) {
+  return Number.parseFloat(product.discounted_price || product.price || 0);
+}
 
 function Products() {
   const user = getCurrentUser();
@@ -11,18 +25,13 @@ function Products() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-  const [selectedWarehouses, setSelectedWarehouses] = useState({});
+  const [sortBy, setSortBy] = useState("featured");
+  const [showDealsOnly, setShowDealsOnly] = useState(false);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [quantities, setQuantities] = useState({});
-  const [form, setForm] = useState({
-    name: "",
-    brand_name: "",
-    category_name: "",
-    price: "",
-    stock: "",
-    image: null,
-  });
+  const [favoriteLoadingIds, setFavoriteLoadingIds] = useState({});
+  const [form, setForm] = useState(initialProductForm);
   const [showForm, setShowForm] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
   const [error, setError] = useState("");
@@ -54,6 +63,69 @@ function Products() {
     loadProducts();
   }, []);
 
+  const dealProducts = useMemo(
+    () =>
+      products
+        .filter((product) => Boolean(product.discounted_price))
+        .sort(
+          (left, right) =>
+            Number.parseFloat(right.discount_percent || 0) -
+            Number.parseFloat(left.discount_percent || 0)
+        )
+        .slice(0, 4),
+    [products]
+  );
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const q = search.toLowerCase();
+      const effectivePrice = getEffectivePrice(product);
+      const productCategories = product.category_names || [];
+
+      const matchesSearch =
+        product.name.toLowerCase().includes(q) ||
+        product.brand_name?.toLowerCase().includes(q) ||
+        productCategories.some((category) => category.toLowerCase().includes(q)) ||
+        product.store_name?.toLowerCase().includes(q) ||
+        product.discount_name?.toLowerCase().includes(q);
+
+      const matchesCategory =
+        categoryFilter === "" || productCategories.includes(categoryFilter);
+      const matchesMin = minPrice === "" || effectivePrice >= Number.parseFloat(minPrice);
+      const matchesMax = maxPrice === "" || effectivePrice <= Number.parseFloat(maxPrice);
+      const matchesDeals = !showDealsOnly || Boolean(product.discounted_price);
+
+      return matchesSearch && matchesCategory && matchesMin && matchesMax && matchesDeals;
+    });
+  }, [categoryFilter, maxPrice, minPrice, products, search, showDealsOnly]);
+
+  const sortedProducts = useMemo(() => {
+    const copy = [...filteredProducts];
+
+    copy.sort((left, right) => {
+      switch (sortBy) {
+        case "price_low":
+          return getEffectivePrice(left) - getEffectivePrice(right);
+        case "price_high":
+          return getEffectivePrice(right) - getEffectivePrice(left);
+        case "rating":
+          return (right.average_rating || 0) - (left.average_rating || 0);
+        case "newest":
+          return new Date(right.created_at || 0) - new Date(left.created_at || 0);
+        default: {
+          const leftDiscount = Number.parseFloat(left.discount_percent || 0);
+          const rightDiscount = Number.parseFloat(right.discount_percent || 0);
+          if (rightDiscount !== leftDiscount) {
+            return rightDiscount - leftDiscount;
+          }
+          return left.name.localeCompare(right.name);
+        }
+      }
+    });
+
+    return copy;
+  }, [filteredProducts, sortBy]);
+
   const handleChange = (event) => {
     setForm({ ...form, [event.target.name]: event.target.value });
   };
@@ -63,14 +135,7 @@ function Products() {
   };
 
   const resetForm = () => {
-    setForm({
-      name: "",
-      brand_name: "",
-      category_name: "",
-      price: "",
-      stock: "",
-      image: null,
-    });
+    setForm(initialProductForm);
     setEditingProductId(null);
     setShowForm(false);
   };
@@ -134,34 +199,7 @@ function Products() {
 
   const getQuantity = (productId) => quantities[productId] || 1;
 
-  const getAvailableStores = (product) => product.available_stores || [];
-
-  const getSelectedStore = (product) => {
-    const selectedWarehouseId = selectedWarehouses[product.product_id];
-    const availableStores = getAvailableStores(product);
-
-    if (!availableStores.length) {
-      return null;
-    }
-
-    if (availableStores.length > 1 && !selectedWarehouseId) {
-      return null;
-    }
-
-    return (
-      availableStores.find((store) => store.warehouse_id === selectedWarehouseId) ||
-      availableStores[0]
-    );
-  };
-
-  const getSelectedStock = (product) => getSelectedStore(product)?.stock || 0;
-
-  const handleStoreChange = (productId, warehouseId) => {
-    setSelectedWarehouses((prev) => ({ ...prev, [productId]: warehouseId }));
-    setQuantities((prev) => ({ ...prev, [productId]: 1 }));
-  };
-
-  const updateQuantity = (productId, delta, max) => {
+  const changeQuantity = (productId, delta, max) => {
     setQuantities((prev) => {
       const current = prev[productId] || 1;
       const next = Math.min(Math.max(1, current + delta), max);
@@ -169,57 +207,78 @@ function Products() {
     });
   };
 
-  const addToCart = async (product) => {
+  const addToCart = async (productId) => {
     setError("");
     setMessage("");
-
-    const selectedStore = getSelectedStore(product);
-    if (!selectedStore) {
-      setError("Select a store with available stock first.");
-      return;
-    }
-
     try {
-      await axios.post(
-        `${API_BASE_URL}/api/cart/add/`,
-        {
-          product_id: product.product_id,
-          warehouse_id: selectedStore.warehouse_id,
-          quantity: getQuantity(product.product_id),
-        }
-      );
+      await axios.post(`${API_BASE_URL}/api/cart/add/`, {
+        product_id: productId,
+        quantity: getQuantity(productId),
+      });
       setMessage("Product added to cart.");
     } catch (err) {
       setError(err.response?.data?.detail || "Could not add product to cart.");
     }
   };
 
-  const filteredProducts = products.filter((product) => {
-    const q = search.toLowerCase();
-    const effectivePrice = parseFloat(product.discounted_price || product.price);
-    const productCategories = product.category_names || [];
+  const toggleFavorite = async (product) => {
+    setError("");
+    setFavoriteLoadingIds((prev) => ({ ...prev, [product.product_id]: true }));
 
-    const matchesSearch =
-      product.name.toLowerCase().includes(q) ||
-      product.brand_name?.toLowerCase().includes(q) ||
-      productCategories.some((category) => category.toLowerCase().includes(q)) ||
-      product.store_name?.toLowerCase().includes(q) ||
-      getAvailableStores(product).some((store) =>
-        `${store.store_name} ${store.store_location}`.toLowerCase().includes(q)
-      ) ||
-      product.discount_name?.toLowerCase().includes(q);
+    try {
+      if (product.is_favorite) {
+        await axios.delete(`${API_BASE_URL}/api/products/favorites/${product.product_id}/`);
+      } else {
+        await axios.post(`${API_BASE_URL}/api/products/favorites/`, {
+          product_id: product.product_id,
+        });
+      }
 
-    const matchesCategory =
-      categoryFilter === "" || productCategories.includes(categoryFilter);
-    const matchesMin = minPrice === "" || effectivePrice >= parseFloat(minPrice);
-    const matchesMax = maxPrice === "" || effectivePrice <= parseFloat(maxPrice);
-
-    return matchesSearch && matchesCategory && matchesMin && matchesMax;
-  });
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.product_id === product.product_id
+            ? { ...item, is_favorite: !item.is_favorite }
+            : item
+        )
+      );
+      setMessage(
+        product.is_favorite
+          ? "Removed from wishlist."
+          : "Added to wishlist."
+      );
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not update wishlist.");
+    } finally {
+      setFavoriteLoadingIds((prev) => ({ ...prev, [product.product_id]: false }));
+    }
+  };
 
   return (
     <div>
-      <h2 className="mb-6 text-3xl font-bold">Products</h2>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold">Products</h2>
+          {!isStaff && (
+            <p className="mt-2 text-slate-600">
+              Browse the catalog, compare deals, save favorites, and open full product details.
+            </p>
+          )}
+        </div>
+
+        {!isStaff && (
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className={`rounded px-4 py-2 text-sm font-semibold ${
+                showDealsOnly ? "bg-red-600 text-white" : "bg-white text-slate-700 shadow"
+              }`}
+              onClick={() => setShowDealsOnly((prev) => !prev)}
+            >
+              {showDealsOnly ? "Show All Products" : "Show Deals Only"}
+            </button>
+          </div>
+        )}
+      </div>
 
       {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
       {message && <p className="mb-4 rounded bg-green-50 p-3 text-green-700">{message}</p>}
@@ -229,7 +288,7 @@ function Products() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70"
           onClick={() => setPreviewImage(null)}
         >
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <div className="relative" onClick={(event) => event.stopPropagation()}>
             <img
               src={previewImage}
               alt="Preview"
@@ -237,13 +296,47 @@ function Products() {
             />
             <button
               onClick={() => setPreviewImage(null)}
-              className="absolute -top-3 -right-3 rounded-full bg-white px-2 py-1 text-sm font-bold shadow"
+              className="absolute -right-3 -top-3 rounded-full bg-white px-2 py-1 text-sm font-bold shadow"
               type="button"
             >
-              x
+              ✕
             </button>
           </div>
         </div>
+      )}
+
+      {!isStaff && dealProducts.length > 0 && !isLoading && (
+        <section className="mb-8 rounded-2xl bg-gradient-to-r from-red-50 via-amber-50 to-rose-50 p-6 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-2xl font-bold text-slate-900">Deals & Offers</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                The strongest discounts in the store right now.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDealsOnly(true)}
+              className="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              View Discounted Products
+            </button>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {dealProducts.map((product) => (
+              <CustomerProductCard
+                key={product.product_id}
+                product={product}
+                quantity={getQuantity(product.product_id)}
+                onIncrease={(productId, max) => changeQuantity(productId, 1, max)}
+                onDecrease={(productId, max) => changeQuantity(productId, -1, max)}
+                onAddToCart={addToCart}
+                onToggleFavorite={toggleFavorite}
+                favoritePending={Boolean(favoriteLoadingIds[product.product_id])}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {isStaff && (
@@ -251,14 +344,7 @@ function Products() {
           onClick={() => {
             setShowForm(true);
             setEditingProductId(null);
-            setForm({
-              name: "",
-              brand_name: "",
-              category_name: "",
-              price: "",
-              stock: "",
-              image: null,
-            });
+            setForm(initialProductForm);
           }}
           className="mb-4 rounded bg-blue-500 px-4 py-2 text-white"
           type="button"
@@ -293,13 +379,13 @@ function Products() {
         </div>
       )}
 
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <input
           type="text"
           placeholder="Search by product, brand, category, store or discount..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 rounded-lg border p-2"
+          onChange={(event) => setSearch(event.target.value)}
+          className="min-w-[220px] flex-1 rounded-lg border p-2"
         />
         <select
           className="rounded-lg border bg-white p-2 text-sm"
@@ -313,59 +399,40 @@ function Products() {
             </option>
           ))}
         </select>
-        <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2">
-          <button
-            onClick={() => setMinPrice((prev) => Math.max(0, (parseFloat(prev) || 0) - 1).toString())}
-            className="font-bold text-slate-500 hover:text-slate-900"
-            type="button"
-          >
-            -
-          </button>
-          <input
-            type="number"
-            placeholder="Min"
-            value={minPrice}
-            onChange={(e) => setMinPrice(e.target.value)}
-            className="w-16 text-center text-sm outline-none"
-          />
-          <button
-            onClick={() => setMinPrice((prev) => ((parseFloat(prev) || 0) + 1).toString())}
-            className="font-bold text-slate-500 hover:text-slate-900"
-            type="button"
-          >
-            +
-          </button>
-        </div>
-        <span className="font-medium text-slate-400">-</span>
-        <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2">
-          <button
-            onClick={() => setMaxPrice((prev) => Math.max(0, (parseFloat(prev) || 0) - 1).toString())}
-            className="font-bold text-slate-500 hover:text-slate-900"
-            type="button"
-          >
-            -
-          </button>
-          <input
-            type="number"
-            placeholder="Max"
-            value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value)}
-            className="w-16 text-center text-sm outline-none"
-          />
-          <button
-            onClick={() => setMaxPrice((prev) => ((parseFloat(prev) || 0) + 1).toString())}
-            className="font-bold text-slate-500 hover:text-slate-900"
-            type="button"
-          >
-            +
-          </button>
-        </div>
-        {(minPrice || maxPrice || categoryFilter) && (
+        <select
+          className="rounded-lg border bg-white p-2 text-sm"
+          value={sortBy}
+          onChange={(event) => setSortBy(event.target.value)}
+        >
+          <option value="featured">Featured</option>
+          <option value="price_low">Price: Low to High</option>
+          <option value="price_high">Price: High to Low</option>
+          <option value="rating">Highest Rated</option>
+          <option value="newest">Newest</option>
+        </select>
+        <input
+          type="number"
+          placeholder="Min"
+          value={minPrice}
+          onChange={(event) => setMinPrice(event.target.value)}
+          className="w-24 rounded-lg border p-2 text-sm"
+        />
+        <input
+          type="number"
+          placeholder="Max"
+          value={maxPrice}
+          onChange={(event) => setMaxPrice(event.target.value)}
+          className="w-24 rounded-lg border p-2 text-sm"
+        />
+        {(minPrice || maxPrice || categoryFilter || search || showDealsOnly || sortBy !== "featured") && (
           <button
             onClick={() => {
+              setSearch("");
               setMinPrice("");
               setMaxPrice("");
               setCategoryFilter("");
+              setSortBy("featured");
+              setShowDealsOnly(false);
             }}
             className="rounded-lg bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
             type="button"
@@ -377,7 +444,7 @@ function Products() {
 
       {isLoading ? (
         <p className="text-slate-600">Loading products...</p>
-      ) : filteredProducts.length === 0 ? (
+      ) : sortedProducts.length === 0 ? (
         <div className="rounded-lg bg-white p-6 shadow">
           {hasCatalog ? (
             <p className="text-slate-600">
@@ -388,7 +455,7 @@ function Products() {
               <p className="text-slate-700">No products have been added yet.</p>
               <p className="mt-2 text-sm text-slate-500">
                 Add one here or run <code>python manage.py seed_demo_catalog</code> to load
-                a demo catalog for the MySQL presentation.
+                a demo catalog for the presentation.
               </p>
             </>
           ) : (
@@ -396,7 +463,7 @@ function Products() {
               <p className="text-slate-700">No products are available right now.</p>
               <p className="mt-2 text-sm text-slate-500">
                 Ask a staff user to add products or run <code>python manage.py seed_demo_catalog</code>
-                so the customer catalog has data to display.
+                so the catalog has data to display.
               </p>
             </>
           )}
@@ -412,11 +479,12 @@ function Products() {
               <th className="p-3 text-left">Price</th>
               <th className="p-3 text-left">Stock</th>
               <th className="p-3 text-left">Store</th>
+              <th className="p-3 text-left">Rating</th>
               <th className="p-3 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map((product) => (
+            {sortedProducts.map((product) => (
               <tr key={product.product_id} className="border-t">
                 <td className="p-3">
                   {product.image ? (
@@ -453,6 +521,9 @@ function Products() {
                 </td>
                 <td className="p-3">{product.stock}</td>
                 <td className="p-3">{product.store_name}</td>
+                <td className="p-3">
+                  {product.average_rating ? `${product.average_rating}/5` : "No reviews"}
+                </td>
                 <td className="space-x-2 p-3">
                   <button onClick={() => handleEdit(product)} className="rounded bg-yellow-400 px-3 py-1" type="button">Edit</button>
                   <button onClick={() => handleDelete(product.product_id)} className="rounded bg-red-500 px-3 py-1 text-white" type="button">Delete</button>
@@ -463,127 +534,17 @@ function Products() {
         </table>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredProducts.map((product) => (
-            <div key={product.product_id} className="flex flex-col overflow-hidden rounded-xl bg-white shadow transition hover:shadow-lg">
-              {(() => {
-                const selectedStore = getSelectedStore(product);
-                const selectedStock = getSelectedStock(product);
-                const availableStores = getAvailableStores(product);
-
-                return (
-                  <>
-                    <div
-                      className="relative h-48 w-full cursor-pointer bg-slate-100"
-                      onClick={() => product.image && setPreviewImage(mediaUrl(product.image))}
-                    >
-                      {product.image ? (
-                        <img
-                          src={mediaUrl(product.image)}
-                          alt={product.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-sm text-slate-400">No image</div>
-                      )}
-                      {product.discount_name && (
-                        <span className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
-                          {product.discount_percent}% OFF
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-1 flex-col p-4">
-                      <p className="text-xs text-slate-400">{product.brand_name}</p>
-                      <h3 className="mt-1 font-semibold text-slate-900">{product.name}</h3>
-                      <p className="mt-1 text-xs font-medium text-blue-600">
-                        {product.category_names?.join(", ") || "Uncategorized"}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-400">
-                        {selectedStore
-                          ? `${selectedStore.store_name} - ${selectedStore.store_location}`
-                          : availableStores.length > 1
-                            ? "Select a store before adding to cart"
-                            : "No store available"}
-                      </p>
-
-                      {availableStores.length > 1 && (
-                        <select
-                          className="mt-3 rounded-lg border bg-white p-2 text-sm"
-                          onChange={(event) =>
-                            handleStoreChange(product.product_id, event.target.value)
-                          }
-                          value={selectedStore?.warehouse_id || ""}
-                        >
-                          <option value="">Select store</option>
-                          {availableStores.map((store) => (
-                            <option key={store.warehouse_id} value={store.warehouse_id}>
-                              {store.store_name} - {store.store_location} ({store.stock} left)
-                            </option>
-                          ))}
-                        </select>
-                      )}
-
-                      <div className="mt-2 flex items-center justify-between">
-                        <div>
-                          {product.discounted_price ? (
-                            <div>
-                              <span className="mr-1 text-sm text-slate-400 line-through">${product.price}</span>
-                              <span className="text-lg font-bold text-red-600">${product.discounted_price}</span>
-                            </div>
-                          ) : (
-                            <span className="text-lg font-bold text-slate-900">${product.price}</span>
-                          )}
-                        </div>
-                        <span
-                          className={`text-xs font-medium ${
-                            selectedStock <= 0
-                              ? "text-red-500"
-                              : selectedStock <= 5
-                                ? "text-orange-500"
-                                : "text-green-600"
-                          }`}
-                        >
-                          {selectedStock <= 0 ? "Out of Stock" : `${selectedStock} left`}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between rounded-lg border p-1">
-                        <button
-                          onClick={() => updateQuantity(product.product_id, -1, selectedStock)}
-                          className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
-                          disabled={getQuantity(product.product_id) <= 1}
-                          type="button"
-                        >
-                          -
-                        </button>
-                        <span className="font-semibold">{getQuantity(product.product_id)}</span>
-                        <button
-                          onClick={() => updateQuantity(product.product_id, 1, selectedStock)}
-                          className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
-                          disabled={getQuantity(product.product_id) >= selectedStock}
-                          type="button"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        className="mt-3 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                        disabled={!selectedStore || selectedStock <= 0}
-                        onClick={() => addToCart(product)}
-                        type="button"
-                      >
-                        {!selectedStore && availableStores.length > 1
-                          ? "Select Store"
-                          : selectedStock <= 0
-                            ? "Out of Stock"
-                            : "Add to Cart"}
-                      </button>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+          {sortedProducts.map((product) => (
+            <CustomerProductCard
+              key={product.product_id}
+              product={product}
+              quantity={getQuantity(product.product_id)}
+              onIncrease={(productId, max) => changeQuantity(productId, 1, max)}
+              onDecrease={(productId, max) => changeQuantity(productId, -1, max)}
+              onAddToCart={addToCart}
+              onToggleFavorite={toggleFavorite}
+              favoritePending={Boolean(favoriteLoadingIds[product.product_id])}
+            />
           ))}
         </div>
       )}

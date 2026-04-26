@@ -1,4 +1,5 @@
 from django.db import models
+from users.models import User
 
 class Brand(models.Model):
     brand_id = models.CharField(max_length=50, primary_key=True)
@@ -13,6 +14,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
     image = models.ImageField(upload_to='products/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
@@ -34,3 +36,23 @@ class ProductCategory(models.Model):
 
     def __str__(self):
         return f"{self.product.name} - {self.category.name}"
+
+
+class ProductFavorite(models.Model):
+    customer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="favorite_products",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="favorited_by",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("customer", "product")
+
+    def __str__(self):
+        return f"{self.customer.name} ♥ {self.product.name}"

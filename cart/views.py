@@ -292,6 +292,8 @@ class CheckoutAPI(APIView):
             {
                 "order_id": order.order_id,
                 "status": order.status,
+                "total": f"{total:.2f}",
+                "item_count": sum(item.quantity for item in items),
                 "cart": serialize_cart(cart),
             },
             status=status.HTTP_201_CREATED,

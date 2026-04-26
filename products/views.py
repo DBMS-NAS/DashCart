@@ -2,6 +2,7 @@ from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
 from django.db import transaction
+from django.db.models import Avg, Count
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -9,9 +10,43 @@ from rest_framework.views import APIView
 
 from inventory.models import Inventory
 from stores.models import Store, Warehouse
-from users.services import get_assigned_store, is_staff_account
-from .models import Brand, Category, Product, ProductCategory
-from .serializers import CategorySerializer, ProductSerializer
+from users.services import get_or_create_database_user, is_staff_account
+
+from .models import Brand, Category, Product, ProductCategory, ProductFavorite
+from .serializers import (
+    CategorySerializer,
+    ProductDetailSerializer,
+    ProductPreviewSerializer,
+    ProductSerializer,
+)
+
+
+def get_product_queryset():
+    return (
+        Product.objects.select_related("brand")
+        .prefetch_related("productcategory_set__category", "product_discounts__discount", "reviews")
+        .annotate(
+            average_rating=Avg("reviews__rating"),
+            review_count=Count("reviews", distinct=True),
+        )
+    )
+
+
+def get_favorite_product_ids(request):
+    if is_staff_account(request.user):
+        return set()
+
+    customer = get_or_create_database_user(request.user)
+    return set(
+        ProductFavorite.objects.filter(customer=customer).values_list("product_id", flat=True)
+    )
+
+
+def build_serializer_context(request):
+    return {
+        "request": request,
+        "favorite_product_ids": get_favorite_product_ids(request),
+    }
 
 
 def get_or_create_brand(brand_name):
@@ -101,18 +136,12 @@ class ProductListAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        store = get_assigned_store(request.user) if is_staff_account(request.user) else None
-        products = (
-            Product.objects.select_related("brand")
-            .prefetch_related("productcategory_set__category")
-            .all()
-            .order_by("name")
+        products = get_product_queryset().order_by("name")
+        serializer = ProductSerializer(
+            products,
+            many=True,
+            context=build_serializer_context(request),
         )
-
-        if store:
-            products = products.filter(inventory__warehouse__store=store).distinct()
-
-        serializer = ProductSerializer(products, many=True, context={"store": store})
         return Response(serializer.data)
 
     @transaction.atomic
@@ -149,11 +178,9 @@ class ProductListAPI(APIView):
         set_product_category(product, category_name)
         set_product_stock(product, stock, request.user)
 
+        fresh_product = get_product_queryset().get(product_id=product.product_id)
         return Response(
-            ProductSerializer(
-                product,
-                context={"store": get_assigned_store(request.user)},
-            ).data,
+            ProductSerializer(fresh_product, context=build_serializer_context(request)).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -161,18 +188,21 @@ class ProductListAPI(APIView):
 class ProductDetailAPI(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_product(self, product_id, request):
-        products = (
-            Product.objects.select_related("brand")
-            .prefetch_related("productcategory_set__category")
-            .filter(product_id=product_id)
+    def get_product(self, product_id):
+        return get_product_queryset().get(product_id=product_id)
+
+    def get(self, request, product_id):
+        try:
+            product = self.get_product(product_id)
+        except Product.DoesNotExist:
+            return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(
+            ProductDetailSerializer(
+                product,
+                context=build_serializer_context(request),
+            ).data
         )
-
-        store = get_assigned_store(request.user) if is_staff_account(request.user) else None
-        if store:
-            products = products.filter(inventory__warehouse__store=store).distinct()
-
-        return products.get()
 
     @transaction.atomic
     def patch(self, request, product_id):
@@ -183,7 +213,7 @@ class ProductDetailAPI(APIView):
             )
 
         try:
-            product = self.get_product(product_id, request)
+            product = Product.objects.get(product_id=product_id)
         except Product.DoesNotExist:
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -212,7 +242,6 @@ class ProductDetailAPI(APIView):
 
         if "category_name" in request.data:
             set_product_category(product, request.data.get("category_name", ""))
-            product._prefetched_objects_cache = {}
 
         if "stock" in request.data:
             stock = parse_stock(request.data.get("stock"))
@@ -220,11 +249,9 @@ class ProductDetailAPI(APIView):
                 return Response({"stock": ["Enter a valid non-negative stock quantity."]}, status=400)
             set_product_stock(product, stock, request.user)
 
+        fresh_product = self.get_product(product_id)
         return Response(
-            ProductSerializer(
-                product,
-                context={"store": get_assigned_store(request.user)},
-            ).data
+            ProductSerializer(fresh_product, context=build_serializer_context(request)).data
         )
 
     @transaction.atomic
@@ -236,11 +263,93 @@ class ProductDetailAPI(APIView):
             )
 
         try:
-            product = self.get_product(product_id, request)
+            product = Product.objects.get(product_id=product_id)
         except Product.DoesNotExist:
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
         product.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProductFavoriteListCreateAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_customer(self, request):
+        if is_staff_account(request.user):
+            return None
+        return get_or_create_database_user(request.user)
+
+    def get(self, request):
+        customer = self.get_customer(request)
+        if customer is None:
+            return Response(
+                {"detail": "Only customers can use favorites."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        products = (
+            get_product_queryset()
+            .filter(favorited_by__customer=customer)
+            .order_by("-favorited_by__created_at", "name")
+            .distinct()
+        )
+        context = {
+            "request": request,
+            "favorite_product_ids": set(products.values_list("product_id", flat=True)),
+        }
+        return Response(ProductPreviewSerializer(products, many=True, context=context).data)
+
+    @transaction.atomic
+    def post(self, request):
+        customer = self.get_customer(request)
+        if customer is None:
+            return Response(
+                {"detail": "Only customers can use favorites."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        product_id = request.data.get("product_id")
+        if not product_id:
+            return Response({"product_id": ["Product is required."]}, status=400)
+
+        try:
+            product = Product.objects.get(product_id=product_id)
+        except Product.DoesNotExist:
+            return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        _, created = ProductFavorite.objects.get_or_create(
+            customer=customer,
+            product=product,
+        )
+        return Response(
+            {
+                "detail": "Added to favorites." if created else "Already in favorites.",
+                "created": created,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class ProductFavoriteDetailAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def delete(self, request, product_id):
+        if is_staff_account(request.user):
+            return Response(
+                {"detail": "Only customers can use favorites."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        customer = get_or_create_database_user(request.user)
+        deleted, _ = ProductFavorite.objects.filter(
+            customer=customer,
+            product_id=product_id,
+        ).delete()
+
+        if not deleted:
+            return Response({"detail": "Favorite not found."}, status=status.HTTP_404_NOT_FOUND)
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
