@@ -1,7 +1,6 @@
 from django.db import models
 
-# Create your models here.
-from django.db import models
+from stores.models import Warehouse
 from users.models import User
 from products.models import Product
 
@@ -18,6 +17,12 @@ class Cart(models.Model):
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    warehouse = models.ForeignKey(
+        Warehouse,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
     quantity = models.IntegerField()
 
     def __str__(self):

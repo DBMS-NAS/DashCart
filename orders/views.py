@@ -3,8 +3,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from users.services import get_or_create_database_user, is_staff_account
+from users.services import get_assigned_store, get_or_create_database_user, is_staff_account
 from .models import Order
+from .query_utils import filter_orders_for_store
 from .serializers import OrderSerializer
 
 
@@ -12,6 +13,7 @@ class OrderListAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        store = get_assigned_store(request.user) if is_staff_account(request.user) else None
         orders = (
             Order.objects.select_related("user")
             .prefetch_related("orderitem_set__product")
@@ -20,8 +22,10 @@ class OrderListAPI(APIView):
 
         if not is_staff_account(request.user):
             orders = orders.filter(user=get_or_create_database_user(request.user))
+        elif store:
+            orders = filter_orders_for_store(orders, store)
 
-        return Response(OrderSerializer(orders, many=True).data)
+        return Response(OrderSerializer(orders, many=True, context={"store": store}).data)
 
 
 class OrderUpdateAPI(APIView):
@@ -32,10 +36,14 @@ class OrderUpdateAPI(APIView):
     def patch(self, request, order_id):
         db_user = get_or_create_database_user(request.user)
         staff = is_staff_account(request.user)
+        store = get_assigned_store(request.user) if staff else None
 
         try:
             if staff:
-                order = Order.objects.get(order_id=order_id)
+                orders = Order.objects.filter(order_id=order_id)
+                if store:
+                    orders = filter_orders_for_store(orders, store)
+                order = orders.get()
             else:
                 order = Order.objects.get(order_id=order_id, user=db_user)
         except Order.DoesNotExist:
@@ -67,4 +75,4 @@ class OrderUpdateAPI(APIView):
 
         order.status = new_status
         order.save()
-        return Response(OrderSerializer(order).data)
+        return Response(OrderSerializer(order, context={"store": store}).data)

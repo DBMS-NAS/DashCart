@@ -116,7 +116,15 @@ function Cart() {
             <tbody>
               {cart.items.map((item) => (
                 <tr className="border-t" key={item.id}>
-                  <td className="p-3">{item.product_name}</td>
+                  <td className="p-3">
+                    <div>{item.product_name}</div>
+                    {item.store_name && (
+                      <div className="mt-1 text-xs text-slate-500">
+                        {item.store_name}
+                        {item.store_location ? ` • ${item.store_location}` : ""}
+                      </div>
+                    )}
+                  </td>
                   <td className="p-3">${item.price}</td>
                   <td className="p-3">
                     <input

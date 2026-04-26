@@ -2,8 +2,10 @@ from uuid import uuid4
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from users.models import User
+
 from products.models import Product
+from stores.models import Warehouse
+from users.models import User
 
 
 class Order(models.Model):
@@ -36,11 +38,16 @@ class OrderItem(models.Model):
             super().save(*args, **kwargs)
             return
 
-        inventories = list(
-            Inventory.objects.select_for_update()
-            .filter(product=self.product)
-            .order_by("id")
+        selected_warehouse = getattr(self, "_selected_warehouse", None)
+        inventories_queryset = Inventory.objects.select_for_update().filter(
+            product=self.product
         )
+        if selected_warehouse:
+            inventories_queryset = inventories_queryset.filter(
+                warehouse=selected_warehouse
+            )
+
+        inventories = list(inventories_queryset.order_by("id"))
         total_available = sum(inventory.quantity for inventory in inventories)
 
         if self.quantity > total_available:
@@ -59,4 +66,25 @@ class OrderItem(models.Model):
             reduction = min(inventory.quantity, remaining)
             inventory.quantity -= reduction
             inventory.save()
+            OrderItemAllocation.objects.create(
+                order_item=self,
+                warehouse=inventory.warehouse,
+                quantity=reduction,
+            )
             remaining -= reduction
+
+
+class OrderItemAllocation(models.Model):
+    order_item = models.ForeignKey(
+        OrderItem,
+        on_delete=models.CASCADE,
+        related_name="allocations",
+    )
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ["order_item_id", "warehouse_id"]
+
+    def __str__(self):
+        return f"{self.order_item.order.order_id} -> {self.warehouse.warehouse_id} ({self.quantity})"

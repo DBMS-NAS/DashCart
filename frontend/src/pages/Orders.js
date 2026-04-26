@@ -8,22 +8,22 @@ import { getCurrentUser } from "../utils/auth";
 const STATUS_OPTIONS = ["pending", "processing", "delivered", "cancelled"];
 
 const STATUS_STYLES = {
-  pending:    "bg-yellow-100 text-yellow-800",
+  pending: "bg-yellow-100 text-yellow-800",
   processing: "bg-blue-100 text-blue-800",
-  delivered:  "bg-green-100 text-green-800",
-  cancelled:  "bg-red-100 text-red-800",
+  delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-800",
 };
 
 const REFUND_STYLES = {
   requested: "bg-yellow-100 text-yellow-800",
-  approved:  "bg-green-100 text-green-800",
-  rejected:  "bg-red-100 text-red-800",
+  approved: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
 };
 
 const REFUND_LABELS = {
   requested: "Waiting for Refund",
-  approved:  "Refunded",
-  rejected:  "Refund Rejected",
+  approved: "Refunded",
+  rejected: "Refund Rejected",
 };
 
 function formatOrderDate(value) {
@@ -249,7 +249,7 @@ function Orders() {
                     <td className="p-3">
                       {order.items.map((item) => (
                         <div key={`${order.order_id}-${item.product_name}`} className="text-sm">
-                          {item.product_name} × {item.quantity}
+                          {item.product_name} x {item.quantity}
                         </div>
                       ))}
                     </td>
@@ -280,7 +280,7 @@ function Orders() {
                           </span>
                         )
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-400">-</span>
                       )}
                     </td>
 

@@ -40,8 +40,8 @@ function Dashboard() {
 
       {dashboard?.store_name && (
         <div className="mb-8 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 shadow-sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white text-lg">
-            🏪
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+            STORE
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">Your Store</p>
