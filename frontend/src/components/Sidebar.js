@@ -15,15 +15,23 @@ function Sidebar() {
   };
 
   return (
-    <div className="flex h-screen w-64 flex-col bg-slate-900 p-6 text-white">
+    <div className="flex min-h-screen w-64 shrink-0 self-stretch flex-col bg-slate-900 p-6 text-white">
       <h2 className="mb-10 text-2xl font-bold">DashCart</h2>
 
       {user && (
-        <div className="mb-8 rounded-lg bg-slate-800 p-3 text-sm">
+        <div className="mb-6 rounded-lg bg-slate-800 p-3 text-sm">
           <p className="font-semibold">{user.username}</p>
           <p className="capitalize text-slate-300">{user.role}</p>
         </div>
       )}
+
+      <button
+        className="mb-8 rounded bg-red-500 px-4 py-2 font-semibold text-white hover:bg-red-600"
+        onClick={handleLogout}
+        type="button"
+      >
+        Logout
+      </button>
 
       <ul className="flex-1 space-y-4">
         <li>
@@ -90,14 +98,6 @@ function Sidebar() {
           </li>
         )}
       </ul>
-
-      <button
-        className="mt-6 rounded bg-red-500 px-4 py-2 font-semibold text-white hover:bg-red-600"
-        onClick={handleLogout}
-        type="button"
-      >
-        Logout
-      </button>
     </div>
   );
 }

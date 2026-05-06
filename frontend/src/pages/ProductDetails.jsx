@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import axios from "../utils/axiosInstance";
 import CustomerProductCard from "../components/CustomerProductCard";
 import ProductStars from "../components/ProductStars";
-import { API_BASE_URL } from "../utils/api";
+import { API_BASE_URL, mediaUrl } from "../utils/api";
 import { getCurrentUser } from "../utils/auth";
 
 function ReviewStars({ rating }) {
@@ -25,6 +25,8 @@ function ProductDetails() {
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [relatedQuantities, setRelatedQuantities] = useState({});
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
+  const [relatedWarehouses, setRelatedWarehouses] = useState({});
   const [favoriteLoadingIds, setFavoriteLoadingIds] = useState({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -38,6 +40,7 @@ function ProductDetails() {
       try {
         const response = await axios.get(`${API_BASE_URL}/api/products/${productId}/`);
         setProduct(response.data);
+        setSelectedWarehouseId(response.data.available_stores?.[0]?.warehouse_id || "");
       } catch (err) {
         setError(err.response?.data?.detail || "Could not load product details.");
       } finally {
@@ -48,13 +51,17 @@ function ProductDetails() {
     loadProduct();
   }, [productId]);
 
-  const addToCart = async (targetProductId, targetQuantity = 1) => {
+  const getRelatedWarehouseId = (targetProduct) =>
+    relatedWarehouses[targetProduct.product_id] || targetProduct.available_stores?.[0]?.warehouse_id || "";
+
+  const addToCart = async (targetProductId, warehouseId, targetQuantity = 1) => {
     setError("");
     setMessage("");
 
     try {
       await axios.post(`${API_BASE_URL}/api/cart/add/`, {
         product_id: targetProductId,
+        warehouse_id: warehouseId,
         quantity: targetQuantity,
       });
       setMessage("Product added to cart.");
@@ -143,7 +150,7 @@ function ProductDetails() {
         <div className="overflow-hidden rounded-2xl bg-slate-100">
           {product.image ? (
             <img
-              src={`${API_BASE_URL}${product.image}`}
+              src={mediaUrl(product.image)}
               alt={product.name}
               className="h-full w-full object-cover"
             />
@@ -215,6 +222,20 @@ function ProductDetails() {
 
             {!isStaff && (
               <>
+                {product.available_stores?.length > 0 && (
+                  <select
+                    className="mt-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700"
+                    value={selectedWarehouseId}
+                    onChange={(event) => setSelectedWarehouseId(event.target.value)}
+                  >
+                    {product.available_stores.map((store) => (
+                      <option key={store.warehouse_id} value={store.warehouse_id}>
+                        {store.store_name} · {store.store_location} ({store.quantity} available)
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 <div className="mt-4 flex items-center justify-between rounded-lg border bg-white p-1">
                   <button
                     type="button"
@@ -238,8 +259,8 @@ function ProductDetails() {
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => addToCart(product.product_id, quantity)}
-                    disabled={product.stock <= 0}
+                    onClick={() => addToCart(product.product_id, selectedWarehouseId, quantity)}
+                    disabled={product.stock <= 0 || !selectedWarehouseId}
                     className="rounded bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
                     {product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
@@ -321,9 +342,13 @@ function ProductDetails() {
                   quantity={relatedQuantities[relatedProduct.product_id] || 1}
                   onIncrease={(targetProductId, max) => updateRelatedQuantity(targetProductId, 1, max)}
                   onDecrease={(targetProductId, max) => updateRelatedQuantity(targetProductId, -1, max)}
-                  onAddToCart={(targetProductId) =>
-                    addToCart(targetProductId, relatedQuantities[targetProductId] || 1)
+                  onAddToCart={(targetProductId, warehouseId) =>
+                    addToCart(targetProductId, warehouseId, relatedQuantities[targetProductId] || 1)
                   }
+                  onSelectWarehouse={(targetProductId, warehouseId) =>
+                    setRelatedWarehouses((prev) => ({ ...prev, [targetProductId]: warehouseId }))
+                  }
+                  selectedWarehouseId={getRelatedWarehouseId(relatedProduct)}
                   onToggleFavorite={!isStaff ? toggleFavorite : null}
                   favoritePending={Boolean(favoriteLoadingIds[relatedProduct.product_id])}
                 />

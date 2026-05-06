@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-import { API_BASE_URL } from "../utils/api";
+import { mediaUrl } from "../utils/api";
 import ProductStars from "./ProductStars";
 
 function CustomerProductCard({
@@ -9,6 +9,8 @@ function CustomerProductCard({
   onIncrease,
   onDecrease,
   onAddToCart,
+  onSelectWarehouse,
+  selectedWarehouseId = "",
   onToggleFavorite,
   favoritePending = false,
   showQuantityControls = true,
@@ -23,7 +25,7 @@ function CustomerProductCard({
         <Link className="block h-48 w-full bg-slate-100" to={detailPath}>
           {product.image ? (
             <img
-              src={`${API_BASE_URL}${product.image}`}
+              src={mediaUrl(product.image)}
               alt={product.name}
               className="h-full w-full object-cover"
             />
@@ -69,7 +71,22 @@ function CustomerProductCard({
           <ProductStars rating={product.average_rating} reviewCount={product.review_count} />
         </div>
         {showStore && (
-          <p className="mt-2 text-xs text-slate-400">{product.store_name}</p>
+          <div className="mt-2">
+            <p className="text-xs text-slate-400">{product.store_name}</p>
+            {onSelectWarehouse && product.available_stores?.length > 0 && (
+              <select
+                className="mt-2 w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                value={selectedWarehouseId}
+                onChange={(event) => onSelectWarehouse(product.product_id, event.target.value)}
+              >
+                {product.available_stores.map((store) => (
+                  <option key={store.warehouse_id} value={store.warehouse_id}>
+                    {store.store_name} · {store.store_location} ({store.quantity} available)
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         )}
 
         <div className="mt-3 flex items-center justify-between">
@@ -128,8 +145,8 @@ function CustomerProductCard({
           {onAddToCart && (
             <button
               className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-              disabled={product.stock <= 0}
-              onClick={() => onAddToCart(product.product_id)}
+              disabled={product.stock <= 0 || !selectedWarehouseId}
+              onClick={() => onAddToCart(product.product_id, selectedWarehouseId)}
               type="button"
             >
               {product.stock <= 0 ? "Out of Stock" : actionLabel}

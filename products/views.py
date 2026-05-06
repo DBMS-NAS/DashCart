@@ -24,7 +24,12 @@ from .serializers import (
 def get_product_queryset():
     return (
         Product.objects.select_related("brand")
-        .prefetch_related("productcategory_set__category", "product_discounts__discount", "reviews")
+        .prefetch_related(
+            "productcategory_set__category",
+            "product_discounts__discount",
+            "reviews",
+            "inventory_set__warehouse__store",
+        )
         .annotate(
             average_rating=Avg("reviews__rating"),
             review_count=Count("reviews", distinct=True),

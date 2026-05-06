@@ -8,6 +8,7 @@ import { API_BASE_URL } from "../utils/api";
 function Wishlist() {
   const [favorites, setFavorites] = useState([]);
   const [quantities, setQuantities] = useState({});
+  const [selectedWarehouses, setSelectedWarehouses] = useState({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +33,8 @@ function Wishlist() {
   }, []);
 
   const getQuantity = (productId) => quantities[productId] || 1;
+  const getSelectedWarehouseId = (product) =>
+    selectedWarehouses[product.product_id] || product.available_stores?.[0]?.warehouse_id || "";
 
   const changeQuantity = (productId, delta, max) => {
     setQuantities((prev) => {
@@ -41,13 +44,14 @@ function Wishlist() {
     });
   };
 
-  const addToCart = async (productId) => {
+  const addToCart = async (productId, warehouseId) => {
     setError("");
     setMessage("");
 
     try {
       await axios.post(`${API_BASE_URL}/api/cart/add/`, {
         product_id: productId,
+        warehouse_id: warehouseId,
         quantity: getQuantity(productId),
       });
       setMessage("Product added to cart.");
@@ -109,6 +113,10 @@ function Wishlist() {
               onIncrease={(productId, max) => changeQuantity(productId, 1, max)}
               onDecrease={(productId, max) => changeQuantity(productId, -1, max)}
               onAddToCart={addToCart}
+              onSelectWarehouse={(productId, warehouseId) =>
+                setSelectedWarehouses((prev) => ({ ...prev, [productId]: warehouseId }))
+              }
+              selectedWarehouseId={getSelectedWarehouseId(product)}
               onToggleFavorite={removeFavorite}
               favoritePending={Boolean(favoriteLoadingIds[product.product_id])}
             />
