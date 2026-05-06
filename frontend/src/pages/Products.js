@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 
+import { Link } from "react-router-dom";
+
 import CustomerProductCard from "../components/CustomerProductCard";
-import { API_BASE_URL } from "../utils/api";
+import { API_BASE_URL, mediaUrl } from "../utils/api";
 import { getCurrentUser } from "../utils/auth";
 
 const initialProductForm = {
@@ -26,10 +28,10 @@ function Products() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState("featured");
-  const [showDealsOnly, setShowDealsOnly] = useState(false);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [quantities, setQuantities] = useState({});
+  const [selectedWarehouses, setSelectedWarehouses] = useState({});
   const [favoriteLoadingIds, setFavoriteLoadingIds] = useState({});
   const [form, setForm] = useState(initialProductForm);
   const [showForm, setShowForm] = useState(false);
@@ -39,8 +41,6 @@ function Products() {
   const [isLoading, setIsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState(null);
   const hasCatalog = products.length > 0;
-
-  const mediaUrl = (path) => (path ? `${API_BASE_URL}${path}` : null);
 
   const loadProducts = async () => {
     setError("");
@@ -93,11 +93,10 @@ function Products() {
         categoryFilter === "" || productCategories.includes(categoryFilter);
       const matchesMin = minPrice === "" || effectivePrice >= Number.parseFloat(minPrice);
       const matchesMax = maxPrice === "" || effectivePrice <= Number.parseFloat(maxPrice);
-      const matchesDeals = !showDealsOnly || Boolean(product.discounted_price);
 
-      return matchesSearch && matchesCategory && matchesMin && matchesMax && matchesDeals;
+      return matchesSearch && matchesCategory && matchesMin && matchesMax;
     });
-  }, [categoryFilter, maxPrice, minPrice, products, search, showDealsOnly]);
+  }, [categoryFilter, maxPrice, minPrice, products, search]);
 
   const sortedProducts = useMemo(() => {
     const copy = [...filteredProducts];
@@ -199,6 +198,9 @@ function Products() {
 
   const getQuantity = (productId) => quantities[productId] || 1;
 
+  const getSelectedWarehouseId = (product) =>
+    selectedWarehouses[product.product_id] || product.available_stores?.[0]?.warehouse_id || "";
+
   const changeQuantity = (productId, delta, max) => {
     setQuantities((prev) => {
       const current = prev[productId] || 1;
@@ -207,12 +209,17 @@ function Products() {
     });
   };
 
-  const addToCart = async (productId) => {
+  const handleWarehouseChange = (productId, warehouseId) => {
+    setSelectedWarehouses((prev) => ({ ...prev, [productId]: warehouseId }));
+  };
+
+  const addToCart = async (productId, warehouseId) => {
     setError("");
     setMessage("");
     try {
       await axios.post(`${API_BASE_URL}/api/cart/add/`, {
         product_id: productId,
+        warehouse_id: warehouseId,
         quantity: getQuantity(productId),
       });
       setMessage("Product added to cart.");
@@ -264,20 +271,6 @@ function Products() {
             </p>
           )}
         </div>
-
-        {!isStaff && (
-          <div className="flex gap-3">
-            <button
-              type="button"
-              className={`rounded px-4 py-2 text-sm font-semibold ${
-                showDealsOnly ? "bg-red-600 text-white" : "bg-white text-slate-700 shadow"
-              }`}
-              onClick={() => setShowDealsOnly((prev) => !prev)}
-            >
-              {showDealsOnly ? "Show All Products" : "Show Deals Only"}
-            </button>
-          </div>
-        )}
       </div>
 
       {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
@@ -307,33 +300,53 @@ function Products() {
 
       {!isStaff && dealProducts.length > 0 && !isLoading && (
         <section className="mb-8 rounded-2xl bg-gradient-to-r from-red-50 via-amber-50 to-rose-50 p-6 shadow-sm">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-4">
             <div>
               <h3 className="text-2xl font-bold text-slate-900">Deals & Offers</h3>
               <p className="mt-1 text-sm text-slate-600">
                 The strongest discounts in the store right now.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowDealsOnly(true)}
-              className="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              View Discounted Products
-            </button>
           </div>
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+          <div className="flex gap-5 overflow-x-auto pb-2">
             {dealProducts.map((product) => (
-              <CustomerProductCard
+              <Link
                 key={product.product_id}
-                product={product}
-                quantity={getQuantity(product.product_id)}
-                onIncrease={(productId, max) => changeQuantity(productId, 1, max)}
-                onDecrease={(productId, max) => changeQuantity(productId, -1, max)}
-                onAddToCart={addToCart}
-                onToggleFavorite={toggleFavorite}
-                favoritePending={Boolean(favoriteLoadingIds[product.product_id])}
-              />
+                to={`/products/${product.product_id}`}
+                className="min-w-[260px] max-w-[260px] overflow-hidden rounded-2xl bg-white shadow transition hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                <div className="relative h-40 bg-slate-100">
+                  {product.image ? (
+                    <img
+                      src={mediaUrl(product.image)}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                      No image
+                    </div>
+                  )}
+                  <span className="absolute left-3 top-3 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
+                    {product.discount_percent}% OFF
+                  </span>
+                </div>
+
+                <div className="p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    {product.brand_name}
+                  </p>
+                  <h4 className="mt-1 text-lg font-bold text-slate-900">{product.name}</h4>
+                  <p className="mt-1 text-sm text-slate-500">{product.store_name}</p>
+                  <div className="mt-4 flex items-center gap-2">
+                    <span className="text-sm text-slate-400 line-through">${product.price}</span>
+                    <span className="text-2xl font-bold text-red-600">
+                      ${product.discounted_price}
+                    </span>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
         </section>
@@ -424,7 +437,7 @@ function Products() {
           onChange={(event) => setMaxPrice(event.target.value)}
           className="w-24 rounded-lg border p-2 text-sm"
         />
-        {(minPrice || maxPrice || categoryFilter || search || showDealsOnly || sortBy !== "featured") && (
+        {(minPrice || maxPrice || categoryFilter || search || sortBy !== "featured") && (
           <button
             onClick={() => {
               setSearch("");
@@ -432,7 +445,6 @@ function Products() {
               setMaxPrice("");
               setCategoryFilter("");
               setSortBy("featured");
-              setShowDealsOnly(false);
             }}
             className="rounded-lg bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
             type="button"
@@ -535,16 +547,18 @@ function Products() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sortedProducts.map((product) => (
-            <CustomerProductCard
-              key={product.product_id}
-              product={product}
-              quantity={getQuantity(product.product_id)}
-              onIncrease={(productId, max) => changeQuantity(productId, 1, max)}
-              onDecrease={(productId, max) => changeQuantity(productId, -1, max)}
-              onAddToCart={addToCart}
-              onToggleFavorite={toggleFavorite}
-              favoritePending={Boolean(favoriteLoadingIds[product.product_id])}
-            />
+                <CustomerProductCard
+                  key={product.product_id}
+                  product={product}
+                  quantity={getQuantity(product.product_id)}
+                  onIncrease={(productId, max) => changeQuantity(productId, 1, max)}
+                  onDecrease={(productId, max) => changeQuantity(productId, -1, max)}
+                  onAddToCart={addToCart}
+                  onSelectWarehouse={handleWarehouseChange}
+                  selectedWarehouseId={getSelectedWarehouseId(product)}
+                  onToggleFavorite={toggleFavorite}
+                  favoritePending={Boolean(favoriteLoadingIds[product.product_id])}
+                />
           ))}
         </div>
       )}
