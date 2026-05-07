@@ -14,72 +14,91 @@ function Sidebar() {
     navigate("/login");
   };
 
-  const customerLinks = [
-    { to: "/dashboard", label: "Dashboard" },
-    { to: "/products", label: "Products" },
-    { to: "/cart", label: "Cart" },
-    { to: "/wishlist", label: "Wishlist" },
-    { to: "/orders", label: "Order History" },
-    { to: "/reviews", label: "Reviews" },
-  ];
-
-  const staffLinks = [
-    { to: "/dashboard", label: "Dashboard" },
-    { to: "/products", label: "Products" },
-    { to: "/orders", label: "Orders" },
-    { to: "/reviews", label: "Reviews" },
-    { to: "/inventory", label: "Inventory" },
-    { to: "/suppliers", label: "Suppliers" },
-    { to: "/discounts", label: "Discounts" },
-  ];
-
-  const links = isCustomer ? customerLinks : staffLinks;
-
-  const isActive = (path) =>
-    location.pathname === path || location.pathname.startsWith(`${path}/`);
-
   return (
-    <aside className="flex h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-slate-900/95 p-7 text-white backdrop-blur">
-      <div className="mb-10 border-b border-slate-200/60 pb-6">
-        <p className="page-eyebrow">Retail Studio</p>
-        <div className="mt-4 flex items-center gap-4">
-          <img
-            src={logoSrc}
-            alt="DashCart logo"
-            className="h-16 w-16 rounded-2xl border border-slate-200/40 object-contain shadow-lg"
-          />
-          <div>
-            <h2 className="display-heading text-4xl text-slate-50">DashCart</h2>
-          </div>
-        </div>
-      </div>
+    <div className="flex min-h-screen w-64 shrink-0 self-stretch flex-col bg-slate-900 p-6 text-white">
+      <h2 className="mb-10 text-2xl font-bold">DashCart</h2>
 
-      <div className="page-eyebrow mb-3">Navigation</div>
-      <ul className="flex-1 space-y-2">
-        {links.map((item) => (
-          <li key={item.to}>
-            <Link
-              to={item.to}
-              className={`block rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                isActive(item.to)
-                  ? "border border-blue-200 bg-blue-50 text-slate-50 shadow-sm"
-                  : "text-slate-300 hover:bg-slate-700/80 hover:text-slate-50"
-              }`}
-            >
-              {item.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {user && (
+        <div className="mb-6 rounded-lg bg-slate-800 p-3 text-sm">
+          <p className="font-semibold">{user.username}</p>
+          <p className="capitalize text-slate-300">{user.role}</p>
+        </div>
+      )}
 
       <button
-        className="premium-button-secondary mt-auto w-full px-4 py-3 text-sm"
+        className="mb-8 rounded bg-red-500 px-4 py-2 font-semibold text-white hover:bg-red-600"
         onClick={handleLogout}
         type="button"
       >
         Logout
       </button>
-    </aside>
+
+      <ul className="flex-1 space-y-4">
+        <li>
+          <Link to="/dashboard" className="block rounded p-2 hover:bg-slate-700">
+            Dashboard
+          </Link>
+        </li>
+
+        <li>
+          <Link to="/products" className="block rounded p-2 hover:bg-slate-700">
+            Products
+          </Link>
+        </li>
+
+        {isCustomer && (
+          <li>
+            <Link to="/cart" className="block rounded p-2 hover:bg-slate-700">
+              Cart
+            </Link>
+          </li>
+        )}
+
+        {isCustomer && (
+          <li>
+            <Link to="/wishlist" className="block rounded p-2 hover:bg-slate-700">
+              Wishlist
+            </Link>
+          </li>
+        )}
+
+        <li>
+          <Link to="/orders" className="block rounded p-2 hover:bg-slate-700">
+            {isCustomer ? "Order History" : "Orders"}
+          </Link>
+        </li>
+
+        <li>
+          <Link to="/reviews" className="block rounded p-2 hover:bg-slate-700">
+            Reviews
+          </Link>
+        </li>
+
+        {isStaff && (
+          <li>
+            <Link to="/inventory" className="block rounded p-2 hover:bg-slate-700">
+              Inventory
+            </Link>
+          </li>
+        )}
+
+        {isStaff && (
+          <li>
+            <Link to="/suppliers" className="block rounded p-2 hover:bg-slate-700">
+              Suppliers
+            </Link>
+          </li>
+        )}
+
+        {isStaff && (
+          <li>
+            <Link to="/discounts" className="block rounded p-2 hover:bg-slate-700">
+              Discounts
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

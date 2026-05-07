@@ -3,6 +3,12 @@ export const API_BASE_URL =
 
 export const VALID_ROLES = ["customer", "staff"];
 
+export function mediaUrl(path) {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_BASE_URL}${path}`;
+}
+
 export function authHeaders() {
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};

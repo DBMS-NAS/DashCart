@@ -27,6 +27,7 @@ class ProductSerializer(serializers.ModelSerializer):
     brand_name = serializers.CharField(source="brand.name", read_only=True)
     stock = serializers.SerializerMethodField()
     store_name = serializers.SerializerMethodField()
+    available_stores = serializers.SerializerMethodField()
     category_ids = serializers.SerializerMethodField()
     category_names = serializers.SerializerMethodField()
     discount_percent = serializers.SerializerMethodField()
@@ -46,6 +47,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "brand_name",
             "stock",
             "store_name",
+            "available_stores",
             "category_ids",
             "category_names",
             "image",
@@ -59,20 +61,48 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
 
     def get_stock(self, obj):
-        return sum(
-            inventory.quantity
-            for inventory in Inventory.objects.filter(product=obj)
-        )
+        return sum(inventory.quantity for inventory in self._get_inventory_rows(obj))
 
     def get_store_name(self, obj):
-        inventory = (
-            Inventory.objects.filter(product=obj)
-            .select_related("warehouse__store")
-            .first()
+        inventory = next(
+            (row for row in self._get_inventory_rows(obj) if row.quantity > 0),
+            None,
         )
         if inventory and inventory.warehouse and inventory.warehouse.store:
             return inventory.warehouse.store.name
         return "Unknown store"
+
+    def _get_inventory_rows(self, obj):
+        prefetched = getattr(obj, "_prefetched_objects_cache", {}).get("inventory_set")
+        if prefetched is not None:
+            return prefetched
+
+        return list(
+            Inventory.objects.filter(product=obj).select_related("warehouse__store")
+        )
+
+    def get_available_stores(self, obj):
+        stores = []
+        for inventory in self._get_inventory_rows(obj):
+            warehouse = inventory.warehouse
+            store = warehouse.store if warehouse else None
+
+            if inventory.quantity <= 0 or warehouse is None or store is None:
+                continue
+
+            stores.append(
+                {
+                    "warehouse_id": warehouse.warehouse_id,
+                    "warehouse_location": warehouse.location,
+                    "store_id": store.store_id,
+                    "store_name": store.name,
+                    "store_location": store.location,
+                    "quantity": inventory.quantity,
+                }
+            )
+
+        stores.sort(key=lambda item: (item["store_name"], item["warehouse_location"]))
+        return stores
 
     def _get_product_categories(self, obj):
         prefetched = getattr(obj, "_prefetched_objects_cache", {}).get(
@@ -143,6 +173,7 @@ class ProductPreviewSerializer(ProductSerializer):
             "brand_name",
             "stock",
             "store_name",
+            "available_stores",
             "category_names",
             "image",
             "discount_percent",
