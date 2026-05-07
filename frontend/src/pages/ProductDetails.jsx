@@ -124,9 +124,9 @@ function ProductDetails() {
 
   if (!product) {
     return (
-      <div className="rounded-xl bg-white p-6 shadow">
+      <div className="section-panel rounded-[1.75rem] p-6">
         <p className="text-slate-700">{error || "Product not found."}</p>
-        <Link className="mt-4 inline-flex rounded bg-blue-600 px-4 py-2 text-white" to="/products">
+        <Link className="premium-button mt-4 inline-flex px-5 py-3 text-sm" to="/products">
           Back to Products
         </Link>
       </div>
@@ -138,7 +138,7 @@ function ProductDetails() {
   return (
     <div className="space-y-8">
       <div>
-        <Link className="text-sm font-semibold text-blue-600 hover:underline" to="/products">
+        <Link className="page-eyebrow hover:underline" to="/products">
           ← Back to Products
         </Link>
       </div>
@@ -146,8 +146,8 @@ function ProductDetails() {
       {error && <p className="rounded bg-red-50 p-3 text-red-700">{error}</p>}
       {message && <p className="rounded bg-green-50 p-3 text-green-700">{message}</p>}
 
-      <section className="grid gap-8 rounded-2xl bg-white p-6 shadow lg:grid-cols-[1.1fr,1fr]">
-        <div className="overflow-hidden rounded-2xl bg-slate-100">
+      <section className="section-panel grid gap-8 rounded-[2rem] p-6 lg:grid-cols-[1.1fr,1fr]">
+        <div className="overflow-hidden rounded-[1.75rem] bg-slate-100">
           {product.image ? (
             <img
               src={mediaUrl(product.image)}
@@ -162,9 +162,9 @@ function ProductDetails() {
         </div>
 
         <div className="flex flex-col">
-          <p className="text-sm uppercase tracking-wide text-slate-400">{product.brand_name}</p>
-          <h1 className="mt-2 text-4xl font-bold text-slate-900">{product.name}</h1>
-          <p className="mt-3 text-sm font-medium text-blue-600">
+          <p className="page-eyebrow">{product.brand_name}</p>
+          <h1 className="display-heading mt-3 text-4xl text-slate-50 md:text-5xl">{product.name}</h1>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
             {product.category_names?.join(", ") || "Uncategorized"}
           </p>
           <div className="mt-4">
@@ -174,26 +174,26 @@ function ProductDetails() {
               size="lg"
             />
           </div>
-          <p className="mt-3 text-sm text-slate-500">Available from {product.store_name}</p>
+          <p className="mt-4 text-sm text-slate-400">Available from {product.store_name}</p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {product.discounted_price ? (
               <>
                 <span className="text-xl text-slate-400 line-through">${product.price}</span>
-                <span className="text-4xl font-bold text-red-600">${product.discounted_price}</span>
-                <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-semibold text-red-600">
+                <span className="text-4xl font-bold text-amber-500">${product.discounted_price}</span>
+                <span className="premium-badge rounded-full px-3 py-1 text-sm">
                   {product.discount_percent}% OFF
                 </span>
               </>
             ) : (
-              <span className="text-4xl font-bold text-slate-900">${product.price}</span>
+              <span className="text-4xl font-bold text-slate-50">${product.price}</span>
             )}
           </div>
 
-          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="premium-card mt-6 rounded-[1.75rem] p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Availability</p>
+                <p className="page-eyebrow">Availability</p>
                 <p className={`mt-1 text-sm ${
                   product.stock <= 0
                     ? "text-red-500"
@@ -209,10 +209,10 @@ function ProductDetails() {
                   type="button"
                   onClick={() => toggleFavorite(product)}
                   disabled={favoriteLoadingIds[product.product_id]}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold ${
                     product.is_favorite
-                      ? "bg-rose-100 text-rose-600"
-                      : "bg-white text-slate-700"
+                      ? "border-blue-200 bg-blue-50 text-slate-50"
+                      : "border-slate-200 bg-slate-900/55 text-slate-200"
                   } disabled:opacity-50`}
                 >
                   {product.is_favorite ? "♥ Saved" : "♡ Save to Wishlist"}
@@ -266,7 +266,7 @@ function ProductDetails() {
                     {product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
                   </button>
                   <Link
-                    className="rounded border border-slate-300 px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50"
+                    className="premium-button-ghost px-5 py-3 text-sm"
                     to="/wishlist"
                   >
                     View Wishlist
@@ -276,30 +276,30 @@ function ProductDetails() {
             )}
 
             {isStaff && (
-              <div className="mt-4 rounded-lg bg-white p-4 text-sm text-slate-600">
+              <div className="premium-card mt-4 rounded-[1.5rem] p-4 text-sm text-slate-300">
                 Staff can preview customer-facing product details here.
               </div>
             )}
           </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Current price</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">${currentPrice}</p>
+            <div className="premium-card rounded-[1.5rem] p-4">
+              <p className="page-eyebrow">Current price</p>
+              <p className="mt-3 text-2xl font-bold text-slate-50">${currentPrice}</p>
             </div>
-            <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer reviews</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">{product.review_count}</p>
+            <div className="premium-card rounded-[1.5rem] p-4">
+              <p className="page-eyebrow">Customer reviews</p>
+              <p className="mt-3 text-2xl font-bold text-slate-50">{product.review_count}</p>
             </div>
           </div>
         </div>
       </section>
 
       <section className="grid gap-8 xl:grid-cols-[1.15fr,0.85fr]">
-        <div className="rounded-2xl bg-white p-6 shadow">
+        <div className="section-panel rounded-[2rem] p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Customer Reviews</h2>
+              <h2 className="display-heading text-3xl text-slate-50">Customer Reviews</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Honest feedback from shoppers who reviewed this product.
               </p>
@@ -311,7 +311,7 @@ function ProductDetails() {
           ) : (
             <div className="space-y-4">
               {product.reviews.map((review) => (
-                <div key={review.review_id} className="rounded-xl border border-slate-200 p-4">
+                <div key={review.review_id} className="premium-card rounded-[1.5rem] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <ReviewStars rating={review.rating} />
                     <span className="text-xs text-slate-400">
@@ -325,8 +325,8 @@ function ProductDetails() {
           )}
         </div>
 
-        <div className="rounded-2xl bg-white p-6 shadow">
-          <h2 className="text-2xl font-bold text-slate-900">Related Products</h2>
+        <div className="section-panel rounded-[2rem] p-6">
+          <h2 className="display-heading text-3xl text-slate-50">Related Products</h2>
           <p className="mt-1 text-sm text-slate-500">
             Similar items from the same categories.
           </p>

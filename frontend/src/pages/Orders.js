@@ -39,6 +39,10 @@ function Orders() {
   const user = getCurrentUser();
   const isStaff = user?.role === "staff";
   const [orders, setOrders] = useState([]);
+  const [customerFilter, setCustomerFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -51,15 +55,36 @@ function Orders() {
     ? "Staff can see and manage all customer orders."
     : "Track what you bought, when it was placed, and whether any refunds are in progress.";
 
+  const customerOptions = useMemo(
+    () => [...new Set(orders.map((order) => order.customer).filter(Boolean))].sort(),
+    [orders]
+  );
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      if (isStaff) {
+        const customerMatches = !customerFilter || order.customer === customerFilter;
+        const statusMatches = !statusFilter || order.status === statusFilter;
+        const orderDate = order.created_at ? new Date(order.created_at) : null;
+        const fromMatches = !fromDate || (orderDate && orderDate >= new Date(`${fromDate}T00:00:00`));
+        const toMatches = !toDate || (orderDate && orderDate <= new Date(`${toDate}T23:59:59`));
+
+        return customerMatches && statusMatches && fromMatches && toMatches;
+      }
+
+      return true;
+    });
+  }, [customerFilter, fromDate, isStaff, orders, statusFilter, toDate]);
+
   const summaryCards = useMemo(() => {
-    const orderCount = orders.length;
-    const activeCount = orders.filter((order) =>
+    const orderCount = filteredOrders.length;
+    const activeCount = filteredOrders.filter((order) =>
       ["pending", "processing"].includes(order.status)
     ).length;
-    const refundCount = orders.filter((order) => order.payment?.refund).length;
+    const refundCount = filteredOrders.filter((order) => order.payment?.refund).length;
 
     if (isStaff) {
-      const deliveredCount = orders.filter((order) => order.status === "delivered").length;
+      const deliveredCount = filteredOrders.filter((order) => order.status === "delivered").length;
       return [
         { label: "Total Orders", value: orderCount },
         { label: "Active Orders", value: activeCount },
@@ -79,7 +104,7 @@ function Orders() {
       { label: "Refund Requests", value: refundCount },
       { label: "Total Spent", value: `$${totalSpent.toFixed(2)}` },
     ];
-  }, [isStaff, orders]);
+  }, [filteredOrders, isStaff, orders]);
 
   const loadOrders = async () => {
     setError("");
@@ -191,12 +216,95 @@ function Orders() {
       {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
       {message && <p className="mb-4 rounded bg-green-50 p-3 text-green-700">{message}</p>}
 
+      {isStaff && (
+        <div className="section-panel mb-6 rounded-[1.5rem] p-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block min-w-[180px] flex-1">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Customer
+              </span>
+              <select
+                className="premium-input w-full rounded-2xl px-4 py-3 text-sm"
+                value={customerFilter}
+                onChange={(event) => setCustomerFilter(event.target.value)}
+              >
+                <option value="">All customers</option>
+                {customerOptions.map((customer) => (
+                  <option key={customer} value={customer}>
+                    {customer}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                From
+              </span>
+              <input
+                className="premium-input rounded-2xl px-4 py-3 text-sm"
+                type="date"
+                value={fromDate}
+                onChange={(event) => setFromDate(event.target.value)}
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                To
+              </span>
+              <input
+                className="premium-input rounded-2xl px-4 py-3 text-sm"
+                type="date"
+                value={toDate}
+                onChange={(event) => setToDate(event.target.value)}
+              />
+            </label>
+
+            <label className="block min-w-[180px]">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Status
+              </span>
+              <select
+                className="premium-input w-full rounded-2xl px-4 py-3 text-sm"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                <option value="">All statuses</option>
+                {STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {(customerFilter || fromDate || toDate || statusFilter) && (
+              <button
+                type="button"
+                className="premium-button-ghost px-4 py-3 text-sm"
+                onClick={() => {
+                  setCustomerFilter("");
+                  setFromDate("");
+                  setToDate("");
+                  setStatusFilter("");
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <p className="text-slate-600">Loading orders...</p>
-      ) : orders.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <div className="rounded-lg bg-white p-6 shadow">
           <p className="text-slate-700">
-            {isStaff ? "No orders have been placed yet." : "You have not placed any orders yet."}
+            {isStaff
+              ? (orders.length === 0 ? "No orders have been placed yet." : "No orders match the current filters.")
+              : "You have not placed any orders yet."}
           </p>
           {!isStaff && (
             <Link
@@ -213,7 +321,7 @@ function Orders() {
             {summaryCards.map((card) => (
               <div key={card.label} className="rounded-xl bg-white p-5 shadow">
                 <p className="text-sm text-slate-500">{card.label}</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">{card.value}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-50">{card.value}</p>
               </div>
             ))}
           </div>
@@ -231,7 +339,7 @@ function Orders() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => {
+              {filteredOrders.map((order) => {
                 const refund = order.payment?.refund ?? null;
                 const hasPayment = !!order.payment;
                 const isCancelled = order.status === "cancelled";

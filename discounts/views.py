@@ -6,7 +6,11 @@ from rest_framework import status
 from users.services import is_staff_account
 from products.models import Product
 from .models import Discount, ProductDiscount
-from .serializers import DiscountSerializer, ProductDiscountSerializer
+from .serializers import (
+    DiscountSerializer,
+    ProductDiscountAssignSerializer,
+    ProductDiscountSerializer,
+)
 
 
 def get_staff_store(user):
@@ -61,8 +65,12 @@ class ProductDiscountAPI(APIView):
         if not is_staff_account(request.user):
             return Response({"detail": "Only staff can assign discounts."}, status=status.HTTP_403_FORBIDDEN)
 
-        product_id = request.data.get("product_id")
-        discount_id = request.data.get("discount_id")
+        serializer = ProductDiscountAssignSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product_id = serializer.validated_data["product_id"]
+        discount_id = serializer.validated_data["discount_id"]
+        start_date = serializer.validated_data["start_date"]
+        end_date = serializer.validated_data["end_date"]
 
         try:
             product = Product.objects.get(product_id=product_id)
@@ -74,7 +82,11 @@ class ProductDiscountAPI(APIView):
         except Discount.DoesNotExist:
             return Response({"detail": "Discount not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        pd, created = ProductDiscount.objects.get_or_create(product=product, discount=discount)
+        pd, created = ProductDiscount.objects.get_or_create(
+            product=product,
+            discount=discount,
+            defaults={"start_date": start_date, "end_date": end_date},
+        )
         if not created:
             return Response({"detail": "This discount is already applied to this product."}, status=status.HTTP_400_BAD_REQUEST)
 

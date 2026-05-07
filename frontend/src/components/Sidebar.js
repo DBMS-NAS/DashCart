@@ -1,12 +1,12 @@
-
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { clearCurrentUser, getCurrentUser } from "../utils/auth";
 
 function Sidebar() {
+  const logoSrc = `${process.env.PUBLIC_URL}/dashcart-logo.png`;
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getCurrentUser();
-  const isStaff = user?.role === "staff";
   const isCustomer = user?.role === "customer";
 
   const handleLogout = () => {
@@ -96,7 +96,7 @@ function Sidebar() {
               Discounts
             </Link>
           </li>
-        )}
+        ))}
       </ul>
     </div>
   );

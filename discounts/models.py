@@ -17,6 +17,8 @@ class Discount(models.Model):
 class ProductDiscount(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_discounts")
     discount = models.ForeignKey(Discount, on_delete=models.CASCADE, related_name="product_discounts")
+    start_date = models.DateField()
+    end_date = models.DateField()
 
     class Meta:
         unique_together = ("product", "discount")

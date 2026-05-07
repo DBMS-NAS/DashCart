@@ -17,9 +17,13 @@ import Wishlist from "./pages/Wishlist";
 
 function AppLayout({ children }) {
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="app-shell flex h-screen overflow-hidden bg-slate-100">
       <Sidebar />
-      <main className="flex-1 p-8">{children}</main>
+      <main className="flex-1 overflow-y-auto overflow-x-auto">
+        <div className="content-frame px-5 py-6 md:px-8 md:py-8 xl:px-12">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

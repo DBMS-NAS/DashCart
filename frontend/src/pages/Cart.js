@@ -85,17 +85,23 @@ function Cart() {
   }
 
   return (
-    <div>
-      <h2 className="mb-6 text-3xl font-bold">Cart</h2>
+    <div className="space-y-8">
+      <section className="hero-panel rounded-[2rem] p-8">
+        <p className="page-eyebrow">Checkout</p>
+        <h2 className="display-heading mt-3 text-4xl text-slate-50 md:text-5xl">Your Cart</h2>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
+          Review selected items, adjust quantities, and complete your order.
+        </p>
+      </section>
 
       {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
       {message && <p className="mb-4 rounded bg-green-50 p-3 text-green-700">{message}</p>}
 
       {cart.items.length === 0 ? (
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="section-panel rounded-[1.75rem] p-6">
           <p className="text-slate-600">Your cart is empty. Add products to begin checkout.</p>
           <Link
-            className="mt-4 inline-flex rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            className="premium-button mt-4 inline-flex px-5 py-3 text-sm"
             to="/products"
           >
             Browse Products
@@ -103,7 +109,7 @@ function Cart() {
         </div>
       ) : (
         <>
-          <table className="w-full rounded-lg bg-white shadow">
+          <table className="section-panel w-full rounded-[1.75rem] shadow">
             <thead className="bg-gray-200">
               <tr>
                 <th className="p-3 text-left">Product</th>
@@ -128,7 +134,7 @@ function Cart() {
                   <td className="p-3">${item.price}</td>
                   <td className="p-3">
                     <input
-                      className="w-20 rounded border p-2"
+                      className="premium-input w-20 rounded-xl px-3 py-2"
                       min="1"
                       onChange={(event) => updateQuantity(item.id, event.target.value)}
                       type="number"
@@ -138,7 +144,7 @@ function Cart() {
                   <td className="p-3">${item.subtotal}</td>
                   <td className="p-3">
                     <button
-                      className="rounded bg-red-500 px-3 py-1 text-white"
+                      className="rounded-xl bg-red-500 px-3 py-1.5 text-white"
                       onClick={() => removeItem(item.id)}
                       type="button"
                     >
@@ -150,7 +156,7 @@ function Cart() {
             </tbody>
           </table>
 
-          <div className="mt-6 flex items-center justify-between rounded-lg bg-white p-6 shadow">
+          <div className="section-panel mt-6 flex items-center justify-between rounded-[1.75rem] p-6 shadow">
             <div>
               <p className="text-sm text-slate-500">Items</p>
               <p className="text-2xl font-bold">{cart.item_count}</p>
@@ -160,7 +166,7 @@ function Cart() {
               <p className="text-2xl font-bold">${cart.total}</p>
             </div>
             <button
-              className="rounded bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="premium-button px-5 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
               onClick={checkout}
               disabled={isCheckingOut}
               type="button"

@@ -1,10 +1,13 @@
 from decimal import Decimal
+from django.utils import timezone
 
 
 def get_best_discount(product):
+    today = timezone.localdate()
     product_discount = (
         product.product_discounts
         .select_related("discount")
+        .filter(start_date__lte=today, end_date__gte=today)
         .order_by("-discount__discount_percent")
         .first()
     )

@@ -117,11 +117,6 @@ class DashboardAPI(APIView):
                     "value": format_currency(cart_total),
                     "description": "Current cart value.",
                 },
-                {
-                    "label": "Available Products",
-                    "value": Product.objects.filter(inventory__quantity__gt=0).distinct().count(),
-                    "description": "Products with stock available.",
-                },
             ]
 
         store_name = profile.store.name if profile and profile.store else None
