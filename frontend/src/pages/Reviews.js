@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 
 import { API_BASE_URL } from "../utils/api";
@@ -71,11 +71,17 @@ function Reviews() {
   const isStaff = user?.role === "staff";
   const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [productFilter, setProductFilter] = useState("");
   const [form, setForm] = useState(initialReviewForm);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  const filteredReviews = useMemo(() => {
+    if (!productFilter) return reviews;
+    return reviews.filter((review) => String(review.product) === productFilter);
+  }, [productFilter, reviews]);
 
   const loadData = async () => {
     setError("");
@@ -166,7 +172,7 @@ function Reviews() {
                 ))}
               </select>
               <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-900">Your rating</p>
+                <p className="text-sm font-semibold text-slate-50">Your rating</p>
                 <p className="mb-3 text-sm text-slate-500">
                   Tap the stars to choose your rating.
                 </p>
@@ -199,19 +205,40 @@ function Reviews() {
           )}
 
           <div className="rounded-xl bg-white p-5 shadow">
-            <h3 className="mb-4 text-xl font-semibold">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <h3 className="text-xl font-semibold">
               {isStaff ? "Anonymous Reviews" : "Your Reviews"}
-            </h3>
+              </h3>
+              <label className="block min-w-[220px]">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Filter by product
+                </span>
+                <select
+                  className="premium-input w-full rounded-2xl px-4 py-3 text-sm"
+                  value={productFilter}
+                  onChange={(event) => setProductFilter(event.target.value)}
+                >
+                  <option value="">All products</option>
+                  {products.map((product) => (
+                    <option key={product.product_id} value={product.product_id}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
-            {reviews.length === 0 ? (
-              <p className="text-slate-600">No reviews yet.</p>
+            {filteredReviews.length === 0 ? (
+              <p className="text-slate-600">
+                {reviews.length === 0 ? "No reviews yet." : "No reviews match the selected product."}
+              </p>
             ) : (
               <div className="space-y-4">
-                {reviews.map((review) => (
+                {filteredReviews.map((review) => (
                   <div className="rounded-lg border p-4" key={review.review_id}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-slate-900">
+                        <p className="font-semibold text-slate-50">
                           {review.product_name}
                         </p>
                         {isStaff && (

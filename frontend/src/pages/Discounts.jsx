@@ -18,7 +18,12 @@ function Discounts() {
   });
   const [showForm, setShowForm] = useState(false);
 
-  const [assignForm, setAssignForm] = useState({ product_id: "", discount_id: "" });
+  const [assignForm, setAssignForm] = useState({
+    product_id: "",
+    discount_id: "",
+    start_date: "",
+    end_date: "",
+  });
   const [showAssign, setShowAssign] = useState(false);
 
   const loadDiscounts = async () => {
@@ -71,13 +76,38 @@ function Discounts() {
   const handleAssign = async () => {
     setError("");
     setMessage("");
+
+    if (
+      !assignForm.product_id ||
+      !assignForm.discount_id ||
+      !assignForm.start_date ||
+      !assignForm.end_date
+    ) {
+      setError("Choose a product, a discount, and both offer dates.");
+      return;
+    }
+
+    if (assignForm.end_date < assignForm.start_date) {
+      setError("End date must be on or after the start date.");
+      return;
+    }
+
     try {
       await axios.post(`${API_BASE_URL}/api/discounts/assign/`, assignForm);
       setMessage("Discount assigned to product.");
-      setAssignForm({ product_id: "", discount_id: "" });
+      setAssignForm({ product_id: "", discount_id: "", start_date: "", end_date: "" });
       setShowAssign(false);
+      loadDiscounts();
     } catch (err) {
-      setError(err.response?.data?.detail || "Could not assign discount.");
+      const responseErrors = err.response?.data;
+      setError(
+        responseErrors?.detail ||
+          responseErrors?.product_id?.[0] ||
+          responseErrors?.discount_id?.[0] ||
+          responseErrors?.start_date?.[0] ||
+          responseErrors?.end_date?.[0] ||
+          "Could not assign discount."
+      );
     }
   };
 
@@ -176,32 +206,54 @@ function Discounts() {
       )}
 
       {showAssign && (
-        <div className="mb-6 space-y-2 rounded bg-white p-4 shadow">
+        <div className="mb-6 space-y-4 rounded bg-white p-4 shadow">
           <h3 className="mb-2 font-semibold text-slate-700">Assign Discount to Product</h3>
-          <select
-            value={assignForm.product_id}
-            onChange={(e) => setAssignForm({ ...assignForm, product_id: e.target.value })}
-            className="mr-2 rounded border p-2"
-          >
-            <option value="">Select product...</option>
-            {products.map((p) => (
-              <option key={p.product_id} value={p.product_id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={assignForm.discount_id}
-            onChange={(e) => setAssignForm({ ...assignForm, discount_id: e.target.value })}
-            className="mr-2 rounded border p-2"
-          >
-            <option value="">Select discount...</option>
-            {discounts.map((d) => (
-              <option key={d.discount_id} value={d.discount_id}>
-                {d.name} ({d.discount_percent}%)
-              </option>
-            ))}
-          </select>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <select
+              value={assignForm.product_id}
+              onChange={(e) => setAssignForm({ ...assignForm, product_id: e.target.value })}
+              className="rounded border p-2"
+            >
+              <option value="">Select product...</option>
+              {products.map((p) => (
+                <option key={p.product_id} value={p.product_id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={assignForm.discount_id}
+              onChange={(e) => setAssignForm({ ...assignForm, discount_id: e.target.value })}
+              className="rounded border p-2"
+            >
+              <option value="">Select discount...</option>
+              {discounts.map((d) => (
+                <option key={d.discount_id} value={d.discount_id}>
+                  {d.name} ({d.discount_percent}%)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm text-slate-600">
+              <span className="mb-1 block font-medium text-slate-700">From date</span>
+              <input
+                type="date"
+                value={assignForm.start_date}
+                onChange={(e) => setAssignForm({ ...assignForm, start_date: e.target.value })}
+                className="w-full rounded border p-2"
+              />
+            </label>
+            <label className="block text-sm text-slate-600">
+              <span className="mb-1 block font-medium text-slate-700">To date</span>
+              <input
+                type="date"
+                value={assignForm.end_date}
+                onChange={(e) => setAssignForm({ ...assignForm, end_date: e.target.value })}
+                className="w-full rounded border p-2"
+              />
+            </label>
+          </div>
           <div className="mt-2 flex gap-2">
             <button onClick={handleAssign} className="rounded bg-green-500 px-4 py-2 text-white" type="button">
               Assign
@@ -242,7 +294,7 @@ function Discounts() {
                           key={p.product_id}
                           className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs"
                         >
-                          {p.name}
+                          {p.name} ({p.start_date} to {p.end_date})
                           <button
                             onClick={() => handleRemove(p.product_id, d.discount_id)}
                             className="ml-1 font-bold text-red-400 hover:text-red-600"

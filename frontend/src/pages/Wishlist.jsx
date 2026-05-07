@@ -78,22 +78,23 @@ function Wishlist() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-3xl font-bold">Wishlist</h2>
-        <p className="mt-2 text-slate-600">
+    <div className="space-y-8">
+      <section className="hero-panel rounded-[2rem] p-8">
+        <p className="page-eyebrow">Saved Collection</p>
+        <h2 className="display-heading mt-3 text-4xl text-slate-50 md:text-5xl">Wishlist</h2>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
           Keep track of products you want to come back to.
         </p>
-      </div>
+      </section>
 
       {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
       {message && <p className="mb-4 rounded bg-green-50 p-3 text-green-700">{message}</p>}
 
       {favorites.length === 0 ? (
-        <div className="rounded-xl bg-white p-6 shadow">
+        <div className="section-panel rounded-[1.75rem] p-6">
           <p className="text-slate-700">Your wishlist is empty.</p>
           <Link
-            className="mt-4 inline-flex rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            className="premium-button mt-4 inline-flex px-5 py-3 text-sm"
             to="/products"
           >
             Browse Products

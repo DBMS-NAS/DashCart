@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 
 import { API_BASE_URL } from "../utils/api";
@@ -34,6 +34,9 @@ function Inventory() {
   const [stores, setStores] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [movements, setMovements] = useState([]);
+  const [productFilter, setProductFilter] = useState("");
+  const [storeFilter, setStoreFilter] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("");
   const [storeForm, setStoreForm] = useState(storeInitialState);
   const [warehouseForm, setWarehouseForm] = useState(warehouseInitialState);
   const [movementForm, setMovementForm] = useState(movementInitialState);
@@ -213,6 +216,15 @@ function Inventory() {
         : "bg-white text-slate-700 shadow"
     }`;
 
+  const filteredInventory = useMemo(() => {
+    return inventory.filter((item) => {
+      const matchesProduct = !productFilter || item.product_id === productFilter;
+      const matchesStore = !storeFilter || item.store_name === storeFilter;
+      const matchesWarehouse = !warehouseFilter || item.warehouse_id === warehouseFilter;
+      return matchesProduct && matchesStore && matchesWarehouse;
+    });
+  }, [inventory, productFilter, storeFilter, warehouseFilter]);
+
   return (
     <div>
       <div className="mb-6">
@@ -247,32 +259,100 @@ function Inventory() {
             </p>
           </div>
         ) : (
-          <table className="w-full rounded-lg bg-white shadow">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="p-3 text-left">Product</th>
-                <th className="p-3 text-left">Price</th>
-                <th className="p-3 text-left">Store</th>
-                <th className="p-3 text-left">Warehouse</th>
-                <th className="p-3 text-left">Stock</th>
-              </tr>
-            </thead>
+          <div className="space-y-4">
+            <div className="section-panel rounded-[1.5rem] p-4">
+              <div className="flex flex-wrap gap-3">
+                <select
+                  className="premium-input rounded-2xl px-4 py-3 text-sm"
+                  value={productFilter}
+                  onChange={(event) => setProductFilter(event.target.value)}
+                >
+                  <option value="">All products</option>
+                  {products.map((product) => (
+                    <option key={product.product_id} value={product.product_id}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="premium-input rounded-2xl px-4 py-3 text-sm"
+                  value={storeFilter}
+                  onChange={(event) => {
+                    setStoreFilter(event.target.value);
+                    setWarehouseFilter("");
+                  }}
+                >
+                  <option value="">All stores</option>
+                  {stores.map((store) => (
+                    <option key={store.store_id} value={store.name}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="premium-input rounded-2xl px-4 py-3 text-sm"
+                  value={warehouseFilter}
+                  onChange={(event) => setWarehouseFilter(event.target.value)}
+                >
+                  <option value="">All warehouses</option>
+                  {warehouses
+                    .filter((warehouse) => !storeFilter || warehouse.store_name === storeFilter)
+                    .map((warehouse) => (
+                      <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
+                        {warehouse.store_name} - {warehouse.store_location || warehouse.location}
+                      </option>
+                    ))}
+                </select>
+                {(productFilter || storeFilter || warehouseFilter) && (
+                  <button
+                    type="button"
+                    className="premium-button-ghost px-4 py-3 text-sm"
+                    onClick={() => {
+                      setProductFilter("");
+                      setStoreFilter("");
+                      setWarehouseFilter("");
+                    }}
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
 
-            <tbody>
-              {inventory.map((item) => (
-                <tr key={item.id} className="border-t">
-                  <td className="p-3">{item.product_name}</td>
-                  <td className="p-3">${item.product_price}</td>
-                  <td className="p-3">{item.store_name}</td>
-                  <td className="p-3">{item.warehouse_location}</td>
-                  <td className="p-3">{item.quantity}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            {filteredInventory.length === 0 ? (
+              <div className="rounded-lg bg-white p-6 shadow">
+                <p className="text-slate-600">No inventory rows match the selected filters.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg bg-white shadow">
+                <table className="min-w-[720px] w-full">
+                  <thead className="bg-gray-200">
+                    <tr>
+                      <th className="p-3 text-left">Product</th>
+                      <th className="p-3 text-left">Price</th>
+                      <th className="p-3 text-left">Store</th>
+                      <th className="p-3 text-left">Warehouse</th>
+                      <th className="p-3 text-left">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredInventory.map((item) => (
+                      <tr key={item.id} className="border-t">
+                        <td className="p-3">{item.product_name}</td>
+                        <td className="p-3">${item.product_price}</td>
+                        <td className="p-3">{item.store_name}</td>
+                        <td className="p-3">{item.warehouse_location}</td>
+                        <td className="p-3">{item.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )
       ) : activeTab === "movements" ? (
-        <div className="grid gap-6 xl:grid-cols-[360px,360px,1fr]">
+        <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[360px,360px,minmax(0,1fr)]">
           <form className="rounded-xl bg-white p-5 shadow" onSubmit={handleMovementSave}>
             <h3 className="mb-4 text-xl font-semibold">Record Stock Movement</h3>
             <select
@@ -399,13 +479,13 @@ function Inventory() {
             )}
           </form>
 
-          <div className="rounded-xl bg-white p-5 shadow">
+          <div className="min-w-0 rounded-xl bg-white p-5 shadow xl:col-span-2 2xl:col-span-1">
             <h3 className="mb-4 text-xl font-semibold">Movement History</h3>
             {movements.length === 0 ? (
               <p className="text-slate-600">No stock movements recorded yet.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto pb-1">
+                <table className="min-w-[780px] w-full">
                   <thead className="border-b bg-slate-50">
                     <tr>
                       <th className="p-3 text-left">Product</th>
@@ -413,6 +493,7 @@ function Inventory() {
                       <th className="p-3 text-left">Warehouse</th>
                       <th className="p-3 text-left">Type</th>
                       <th className="p-3 text-left">Qty</th>
+                      <th className="p-3 text-left">Created</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -423,6 +504,11 @@ function Inventory() {
                         <td className="p-3">{movement.warehouse_location}</td>
                         <td className="p-3 capitalize">{movement.type}</td>
                         <td className="p-3">{movement.quantity}</td>
+                        <td className="p-3 text-sm text-slate-500">
+                          {movement.created_at
+                            ? new Date(movement.created_at).toLocaleString()
+                            : "-"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

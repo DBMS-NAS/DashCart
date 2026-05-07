@@ -76,35 +76,41 @@ function Register() {
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-10">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-slate-900">Create Account</h1>
-          <p className="mt-2 text-slate-600">
+      <div className="mx-auto max-w-5xl">
+        <div className="hero-panel mb-8 rounded-[2rem] p-8 text-center shadow-2xl">
+          <p className="page-eyebrow">Get Started</p>
+          <h1 className="display-heading mt-4 text-4xl text-slate-50 md:text-5xl">
+            Create your DashCart account
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-300">
             Choose the account role first, then enter login details.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-6 shadow">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">
+        <form onSubmit={handleSubmit} className="section-panel rounded-[2rem] p-6 shadow">
+          <h2 className="display-heading mb-2 text-3xl text-slate-50">
             What type of user are you?
           </h2>
+          <p className="mb-6 text-sm leading-6 text-slate-400">
+            Pick the experience that matches how you will use the platform.
+          </p>
 
           <div className="mb-6 grid gap-4 md:grid-cols-2">
             {roles.map((item) => (
               <button
-                className={`rounded-xl border p-4 text-left transition ${
+                className={`rounded-[1.5rem] border p-5 text-left transition ${
                   role === item.value
                     ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200"
-                    : "border-slate-200 hover:border-blue-300"
+                    : "premium-card hover:border-blue-300"
                 }`}
                 key={item.value}
                 onClick={() => setRole(item.value)}
                 type="button"
               >
-                <span className="block text-lg font-semibold text-slate-900">
+                <span className="block text-xl font-semibold text-slate-50">
                   {item.label}
                 </span>
-                <span className="mt-2 block text-sm text-slate-600">
+                <span className="mt-2 block text-sm leading-6 text-slate-400">
                   {item.description}
                 </span>
               </button>
@@ -117,7 +123,7 @@ function Register() {
                 Username
               </span>
               <input
-                className="w-full rounded-lg border border-slate-300 p-3 focus:border-blue-500 focus:outline-none"
+                className="premium-input w-full rounded-2xl px-4 py-3"
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="Enter username"
                 required
@@ -130,7 +136,7 @@ function Register() {
                 Password
               </span>
               <input
-                className="w-full rounded-lg border border-slate-300 p-3 focus:border-blue-500 focus:outline-none"
+                className="premium-input w-full rounded-2xl px-4 py-3"
                 minLength={8}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="At least 8 characters"
@@ -154,16 +160,16 @@ function Register() {
           )}
 
           <button
-            className="mt-6 w-full rounded-lg bg-blue-600 p-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="premium-button mt-6 w-full px-4 py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
             type="submit"
           >
             {isSubmitting ? "Creating account..." : "Create Account"}
           </button>
 
-          <p className="mt-4 text-center text-sm text-slate-600">
+          <p className="mt-4 text-center text-sm text-slate-400">
             Already have an account?{" "}
-            <Link className="font-semibold text-blue-600 hover:underline" to="/login">
+            <Link className="font-semibold text-amber-500 hover:underline" to="/login">
               Log in
             </Link>
           </p>

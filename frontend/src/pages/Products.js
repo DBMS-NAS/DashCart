@@ -254,12 +254,14 @@ function Products() {
   };
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-8">
+      <section className="hero-panel rounded-[2rem] p-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Products</h2>
+          <p className="page-eyebrow">{isStaff ? "Catalog Control" : "Curated Collection"}</p>
+          <h2 className="display-heading mt-3 text-4xl text-slate-50 md:text-5xl">Products</h2>
           {!isStaff && (
-            <p className="mt-2 text-slate-600">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
               Browse the catalog, compare deals, save favorites, and open full product details.
             </p>
           )}
@@ -269,8 +271,8 @@ function Products() {
           <div className="flex gap-3">
             <button
               type="button"
-              className={`rounded px-4 py-2 text-sm font-semibold ${
-                showDealsOnly ? "bg-red-600 text-white" : "bg-white text-slate-700 shadow"
+              className={`px-5 py-3 text-sm ${
+                showDealsOnly ? "premium-button-secondary" : "premium-button-ghost"
               }`}
               onClick={() => setShowDealsOnly((prev) => !prev)}
             >
@@ -279,6 +281,7 @@ function Products() {
           </div>
         )}
       </div>
+      </section>
 
       {error && <p className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}
       {message && <p className="mb-4 rounded bg-green-50 p-3 text-green-700">{message}</p>}
@@ -306,18 +309,19 @@ function Products() {
       )}
 
       {!isStaff && dealProducts.length > 0 && !isLoading && (
-        <section className="mb-8 rounded-2xl bg-gradient-to-r from-red-50 via-amber-50 to-rose-50 p-6 shadow-sm">
+        <section className="section-panel rounded-[2rem] p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-2xl font-bold text-slate-900">Deals & Offers</h3>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="page-eyebrow">Special Pricing</p>
+              <h3 className="display-heading mt-3 text-3xl text-slate-50">Deals & Offers</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
                 The strongest discounts in the store right now.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowDealsOnly(true)}
-              className="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              className="premium-button px-4 py-2.5 text-sm"
             >
               View Discounted Products
             </button>
@@ -346,7 +350,7 @@ function Products() {
             setEditingProductId(null);
             setForm(initialProductForm);
           }}
-          className="mb-4 rounded bg-blue-500 px-4 py-2 text-white"
+          className="premium-button mb-4 px-5 py-3 text-sm"
           type="button"
         >
           + Add Product
@@ -355,15 +359,29 @@ function Products() {
 
       {isStaff && showForm && (
         <div className="mb-6 rounded bg-white p-4 shadow">
-          <input type="text" name="name" placeholder="Product Name" value={form.name} onChange={handleChange} className="mb-2 mr-2 border p-2" />
-          <input type="text" name="brand_name" placeholder="Brand" value={form.brand_name} onChange={handleChange} className="mb-2 mr-2 border p-2" />
+          <input
+            type="text"
+            name="name"
+            placeholder="Product Name"
+            value={form.name}
+            onChange={handleChange}
+            className="premium-input mb-2 mr-2 p-2"
+          />
+          <input
+            type="text"
+            name="brand_name"
+            placeholder="Brand"
+            value={form.brand_name}
+            onChange={handleChange}
+            className="premium-input mb-2 mr-2 p-2"
+          />
           <input
             type="text"
             name="category_name"
             placeholder="Category"
             value={form.category_name}
             onChange={handleChange}
-            className="mb-2 mr-2 border p-2"
+            className="premium-input mb-2 mr-2 p-2"
             list="category-options"
           />
           <datalist id="category-options">
@@ -371,24 +389,44 @@ function Products() {
               <option key={category.category_id} value={category.name} />
             ))}
           </datalist>
-          <input type="number" name="price" placeholder="Price" value={form.price} onChange={handleChange} className="mb-2 mr-2 border p-2" />
-          <input type="number" name="stock" placeholder="Stock" value={form.stock} onChange={handleChange} className="mb-2 mr-2 border p-2" />
-          <input type="file" accept="image/*" onChange={handleImageChange} className="mb-2 mr-2 border p-2" />
+          <input
+            type="number"
+            name="price"
+            placeholder="Price"
+            value={form.price}
+            onChange={handleChange}
+            className="premium-input mb-2 mr-2 p-2"
+          />
+          <input
+            type="number"
+            name="stock"
+            placeholder="Stock"
+            value={form.stock}
+            onChange={handleChange}
+            className="premium-input mb-2 mr-2 p-2"
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="mb-2 mr-2 rounded border border-slate-300 p-2 text-slate-50"
+          />
           <button onClick={handleSave} className="mr-2 rounded bg-green-500 px-4 py-2 text-white" type="button">Save</button>
           <button onClick={resetForm} className="rounded bg-slate-200 px-4 py-2" type="button">Cancel</button>
         </div>
       )}
 
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <section className="section-panel rounded-[1.75rem] p-4">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
           placeholder="Search by product, brand, category, store or discount..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          className="min-w-[220px] flex-1 rounded-lg border p-2"
+          className="premium-input min-w-[220px] flex-1 rounded-2xl px-4 py-3"
         />
         <select
-          className="rounded-lg border bg-white p-2 text-sm"
+          className="premium-input rounded-2xl bg-white px-4 py-3 text-sm"
           onChange={(event) => setCategoryFilter(event.target.value)}
           value={categoryFilter}
         >
@@ -400,7 +438,7 @@ function Products() {
           ))}
         </select>
         <select
-          className="rounded-lg border bg-white p-2 text-sm"
+          className="premium-input rounded-2xl bg-white px-4 py-3 text-sm"
           value={sortBy}
           onChange={(event) => setSortBy(event.target.value)}
         >
@@ -415,14 +453,14 @@ function Products() {
           placeholder="Min"
           value={minPrice}
           onChange={(event) => setMinPrice(event.target.value)}
-          className="w-24 rounded-lg border p-2 text-sm"
+          className="premium-input w-24 rounded-2xl px-3 py-3 text-sm"
         />
         <input
           type="number"
           placeholder="Max"
           value={maxPrice}
           onChange={(event) => setMaxPrice(event.target.value)}
-          className="w-24 rounded-lg border p-2 text-sm"
+          className="premium-input w-24 rounded-2xl px-3 py-3 text-sm"
         />
         {(minPrice || maxPrice || categoryFilter || search || showDealsOnly || sortBy !== "featured") && (
           <button
@@ -434,18 +472,19 @@ function Products() {
               setSortBy("featured");
               setShowDealsOnly(false);
             }}
-            className="rounded-lg bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
+            className="premium-button-ghost px-4 py-3 text-sm"
             type="button"
           >
             Clear
           </button>
         )}
       </div>
+      </section>
 
       {isLoading ? (
         <p className="text-slate-600">Loading products...</p>
       ) : sortedProducts.length === 0 ? (
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="section-panel rounded-[1.75rem] p-6">
           {hasCatalog ? (
             <p className="text-slate-600">
               No products match the current search or filters.
@@ -469,7 +508,7 @@ function Products() {
           )}
         </div>
       ) : isStaff ? (
-        <table className="w-full rounded-lg bg-white shadow">
+        <table className="section-panel w-full rounded-[1.75rem] shadow">
           <thead className="bg-gray-200">
             <tr>
               <th className="p-3 text-left">Image</th>

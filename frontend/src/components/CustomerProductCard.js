@@ -18,14 +18,14 @@ function CustomerProductCard({
   const detailPath = `/products/${product.product_id}`;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl bg-white shadow transition hover:-translate-y-0.5 hover:shadow-lg">
-      <div className="relative">
-        <Link className="block h-48 w-full bg-slate-100" to={detailPath}>
+    <div className="premium-card flex flex-col transition hover:-translate-y-1 hover:shadow-lg">
+      <div className="relative overflow-hidden">
+        <Link className="block h-56 w-full bg-slate-100" to={detailPath}>
           {product.image ? (
             <img
               src={`${API_BASE_URL}${product.image}`}
               alt={product.name}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition duration-500 hover:scale-105"
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-slate-400">
@@ -33,9 +33,10 @@ function CustomerProductCard({
             </div>
           )}
         </Link>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-900/80 to-transparent" />
 
         {product.discount_name && (
-          <span className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+          <span className="premium-badge absolute left-3 top-3 rounded-full px-3 py-1">
             {product.discount_percent}% OFF
           </span>
         )}
@@ -45,10 +46,10 @@ function CustomerProductCard({
             type="button"
             disabled={favoritePending}
             onClick={() => onToggleFavorite(product)}
-            className={`absolute right-2 top-2 rounded-full px-2 py-1 text-lg shadow ${
+            className={`absolute right-3 top-3 rounded-full border px-3 py-1.5 text-lg shadow ${
               product.is_favorite
-                ? "bg-rose-100 text-rose-600"
-                : "bg-white text-slate-500"
+                ? "border-blue-200 bg-blue-50 text-slate-50"
+                : "border-slate-200 bg-slate-900/65 text-slate-200"
             } disabled:opacity-50`}
             aria-label={product.is_favorite ? "Remove from wishlist" : "Add to wishlist"}
           >
@@ -57,39 +58,39 @@ function CustomerProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-4">
-        <p className="text-xs text-slate-400">{product.brand_name}</p>
-        <Link className="mt-1 text-lg font-semibold text-slate-900 hover:text-blue-600" to={detailPath}>
+      <div className="flex flex-1 flex-col p-5">
+        <p className="page-eyebrow">{product.brand_name}</p>
+        <Link className="font-display mt-2 text-2xl text-slate-50 hover:text-amber-500" to={detailPath}>
           {product.name}
         </Link>
-        <p className="mt-1 text-xs font-medium text-blue-600">
+        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
           {product.category_names?.join(", ") || "Uncategorized"}
         </p>
-        <div className="mt-2">
+        <div className="mt-4">
           <ProductStars rating={product.average_rating} reviewCount={product.review_count} />
         </div>
         {showStore && (
-          <p className="mt-2 text-xs text-slate-400">{product.store_name}</p>
+          <p className="mt-3 text-xs text-slate-400">{product.store_name}</p>
         )}
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-5 flex items-center justify-between gap-3">
           <div>
             {product.discounted_price ? (
               <div>
                 <span className="mr-2 text-sm text-slate-400 line-through">${product.price}</span>
-                <span className="text-lg font-bold text-red-600">${product.discounted_price}</span>
+                <span className="text-2xl font-bold text-amber-500">${product.discounted_price}</span>
               </div>
             ) : (
-              <span className="text-lg font-bold text-slate-900">${product.price}</span>
+              <span className="text-2xl font-bold text-slate-50">${product.price}</span>
             )}
           </div>
           <span
-            className={`text-xs font-medium ${
+            className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
               product.stock <= 0
-                ? "text-red-500"
+                ? "bg-red-100 text-red-700"
                 : product.stock <= 5
-                  ? "text-orange-500"
-                  : "text-green-600"
+                  ? "bg-amber-50 text-amber-700"
+                  : "bg-emerald-50 text-emerald-300"
             }`}
           >
             {product.stock <= 0 ? "Out of Stock" : `${product.stock} left`}
@@ -97,7 +98,7 @@ function CustomerProductCard({
         </div>
 
         {showQuantityControls && (
-          <div className="mt-4 flex items-center justify-between rounded-lg border p-1">
+          <div className="mt-5 flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
             <button
               onClick={() => onDecrease(product.product_id, product.stock)}
               className="px-3 py-1 text-lg font-bold text-slate-600 hover:text-slate-900 disabled:opacity-30"
@@ -121,13 +122,13 @@ function CustomerProductCard({
         <div className="mt-4 flex gap-2">
           <Link
             to={detailPath}
-            className="flex-1 rounded-lg border border-slate-300 py-2 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="premium-button-ghost flex-1 px-3 py-2.5 text-center text-sm"
           >
             View Details
           </Link>
           {onAddToCart && (
             <button
-              className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="premium-button flex-1 px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
               disabled={product.stock <= 0}
               onClick={() => onAddToCart(product.product_id)}
               type="button"

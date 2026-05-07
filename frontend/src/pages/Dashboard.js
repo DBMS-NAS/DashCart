@@ -31,23 +31,31 @@ function Dashboard() {
   }, []);
 
   return (
-    <div>
-      <h2 className="mb-2 text-3xl font-bold">Dashboard</h2>
-      <p className="mb-4 text-slate-600">
-        Welcome, {dashboard?.username || user?.username}. You are logged in as{" "}
-        {dashboard?.role || user?.role}.
-      </p>
+    <div className="space-y-8">
+      <section className="hero-panel rounded-[2rem] p-8 lg:p-10">
+        <p className="page-eyebrow">Overview</p>
+        <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <h2 className="display-heading text-4xl text-slate-50 md:text-5xl">
+              Welcome back, {dashboard?.username || user?.username}.
+            </h2>
+          </div>
+          <div className="premium-badge rounded-full px-4 py-2">
+            {dashboard?.role || user?.role}
+          </div>
+        </div>
+      </section>
 
       {dashboard?.store_name && (
-        <div className="mb-8 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 shadow-sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-            STORE
+        <div className="section-panel flex items-center gap-4 rounded-[1.75rem] px-6 py-5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+            HUB
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">Your Store</p>
-            <p className="text-lg font-bold text-blue-900">{dashboard.store_name}</p>
+            <p className="page-eyebrow">Your Store</p>
+            <p className="mt-2 text-xl font-semibold text-slate-50">{dashboard.store_name}</p>
             {dashboard.store_location && (
-              <p className="text-sm text-blue-600">{dashboard.store_location}</p>
+              <p className="text-sm text-slate-300">{dashboard.store_location}</p>
             )}
           </div>
         </div>
@@ -61,44 +69,51 @@ function Dashboard() {
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {dashboard?.cards.map((card) => (
             <div
-              className="rounded-xl bg-white p-6 shadow transition hover:shadow-lg"
+              className="premium-card rounded-[1.75rem] p-6 transition hover:-translate-y-1 hover:shadow-lg"
               key={card.label}
             >
-              <h3 className="text-gray-500">{card.label}</h3>
-              <p className="mt-2 text-3xl font-bold">{card.value}</p>
-              <p className="mt-2 text-sm text-slate-500">{card.description}</p>
+              <p className="page-eyebrow">{card.label}</p>
+              <p className="mt-4 text-4xl font-extrabold text-slate-50">{card.value}</p>
             </div>
           ))}
         </div>
       )}
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Link className="rounded bg-blue-600 px-4 py-2 text-white" to="/products">
+      <section className="section-panel rounded-[1.75rem] p-6">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="page-eyebrow">Quick Actions</p>
+            <h3 className="display-heading mt-3 text-3xl text-slate-50">Navigate faster through quick actions</h3>
+          </div>
+          <div className="flex flex-wrap gap-3">
+        <Link className="premium-button px-5 py-3 text-sm" to="/products">
           View Products
         </Link>
         {isStaff ? (
           <>
-            <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/inventory">
+            <Link className="premium-button-ghost px-5 py-3 text-sm" to="/inventory">
               Manage Inventory
             </Link>
-            <Link className="rounded bg-emerald-700 px-4 py-2 text-white" to="/suppliers">
+            <Link className="premium-button-secondary px-5 py-3 text-sm" to="/suppliers">
               Manage Suppliers
             </Link>
           </>
         ) : (
           <>
-            <Link className="rounded bg-slate-800 px-4 py-2 text-white" to="/cart">
+            <Link className="premium-button-ghost px-5 py-3 text-sm" to="/cart">
               View Cart
             </Link>
-            <Link className="rounded bg-rose-600 px-4 py-2 text-white" to="/wishlist">
+            <Link className="premium-button-secondary px-5 py-3 text-sm" to="/wishlist">
               View Wishlist
             </Link>
-            <Link className="rounded bg-emerald-700 px-4 py-2 text-white" to="/orders">
+            <Link className="premium-button px-5 py-3 text-sm" to="/orders">
               View Order History
             </Link>
           </>
         )}
-      </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

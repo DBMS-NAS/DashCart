@@ -7,7 +7,7 @@ function ProductStars({ rating, reviewCount = 0, size = "sm" }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className={`tracking-wide text-amber-500 ${starClassName}`}>
+      <span className={`tracking-[0.2em] text-amber-500 ${starClassName}`}>
         {"★".repeat(roundedRating)}
         <span className="text-slate-300">{"★".repeat(5 - roundedRating)}</span>
       </span>
