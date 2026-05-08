@@ -8,6 +8,7 @@ function Sidebar() {
   const location = useLocation();
   const user = getCurrentUser();
   const isCustomer = user?.role === "customer";
+  const isStaff = user?.role === "staff";
 
   const handleLogout = () => {
     clearCurrentUser();
@@ -96,7 +97,7 @@ function Sidebar() {
               Discounts
             </Link>
           </li>
-        ))}
+        )}
       </ul>
     </div>
   );

@@ -39,12 +39,17 @@ class OrderItem(models.Model):
             return
 
         selected_warehouse = getattr(self, "_selected_warehouse", None)
+        selected_store = getattr(self, "_selected_store", None)
         inventories_queryset = Inventory.objects.select_for_update().filter(
             product=self.product
         )
         if selected_warehouse:
             inventories_queryset = inventories_queryset.filter(
                 warehouse=selected_warehouse
+            )
+        elif selected_store:
+            inventories_queryset = inventories_queryset.filter(
+                warehouse__store=selected_store
             )
 
         inventories = list(inventories_queryset.order_by("id"))

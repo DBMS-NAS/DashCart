@@ -109,52 +109,54 @@ function Cart() {
         </div>
       ) : (
         <>
-          <table className="section-panel w-full rounded-[1.75rem] shadow">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="p-3 text-left">Product</th>
-                <th className="p-3 text-left">Price</th>
-                <th className="p-3 text-left">Quantity</th>
-                <th className="p-3 text-left">Subtotal</th>
-                <th className="p-3 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cart.items.map((item) => (
-                <tr className="border-t" key={item.id}>
-                  <td className="p-3">
-                    <div>{item.product_name}</div>
-                    {item.store_name && (
-                      <div className="mt-1 text-xs text-slate-500">
-                        {item.store_name}
-                        {item.store_location ? ` • ${item.store_location}` : ""}
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-3">${item.price}</td>
-                  <td className="p-3">
-                    <input
-                      className="premium-input w-20 rounded-xl px-3 py-2"
-                      min="1"
-                      onChange={(event) => updateQuantity(item.id, event.target.value)}
-                      type="number"
-                      value={item.quantity}
-                    />
-                  </td>
-                  <td className="p-3">${item.subtotal}</td>
-                  <td className="p-3">
-                    <button
-                      className="rounded-xl bg-red-500 px-3 py-1.5 text-white"
-                      onClick={() => removeItem(item.id)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                  </td>
+          <div className="section-panel overflow-hidden rounded-[1.75rem] shadow">
+            <table className="w-full">
+              <thead className="bg-gray-200">
+                <tr>
+                  <th className="p-3 text-left">Product</th>
+                  <th className="p-3 text-left">Price</th>
+                  <th className="p-3 text-left">Quantity</th>
+                  <th className="p-3 text-left">Subtotal</th>
+                  <th className="p-3 text-left">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {cart.items.map((item) => (
+                  <tr className="border-t" key={item.id}>
+                    <td className="p-3">
+                      <div>{item.product_name}</div>
+                      {item.store_name && (
+                        <div className="mt-1 text-xs text-slate-500">
+                          {item.store_name}
+                          {item.store_location ? ` • ${item.store_location}` : ""}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-3 font-semibold text-amber-500">${item.price}</td>
+                    <td className="p-3">
+                      <input
+                        className="premium-input w-20 rounded-xl px-3 py-2"
+                        min="1"
+                        onChange={(event) => updateQuantity(item.id, event.target.value)}
+                        type="number"
+                        value={item.quantity}
+                      />
+                    </td>
+                    <td className="p-3 font-semibold text-amber-500">${item.subtotal}</td>
+                    <td className="p-3">
+                      <button
+                        className="rounded-xl bg-red-500 px-3 py-1.5 text-white"
+                        onClick={() => removeItem(item.id)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div className="section-panel mt-6 flex items-center justify-between rounded-[1.75rem] p-6 shadow">
             <div>
@@ -163,7 +165,7 @@ function Cart() {
             </div>
             <div>
               <p className="text-sm text-slate-500">Total</p>
-              <p className="text-2xl font-bold">${cart.total}</p>
+              <p className="text-2xl font-bold text-amber-500">${cart.total}</p>
             </div>
             <button
               className="premium-button px-5 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"

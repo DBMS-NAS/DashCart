@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 
 from inventory.models import Inventory
 from stores.models import Store, Warehouse
-from users.services import get_or_create_database_user, is_staff_account
+from users.services import get_assigned_store, get_or_create_database_user, is_staff_account
 
 from .models import Brand, Category, Product, ProductCategory, ProductFavorite
 from .serializers import (
@@ -48,10 +48,38 @@ def get_favorite_product_ids(request):
 
 
 def build_serializer_context(request):
+    assigned_store = get_assigned_store(request.user) if is_staff_account(request.user) else None
     return {
         "request": request,
         "favorite_product_ids": get_favorite_product_ids(request),
+        "assigned_store": assigned_store,
     }
+
+
+def filter_products_for_request(queryset, request):
+    if not is_staff_account(request.user):
+        return queryset
+
+    assigned_store = get_assigned_store(request.user)
+    if assigned_store is None:
+        return queryset.none()
+
+    return queryset.filter(inventory__warehouse__store=assigned_store).distinct()
+
+
+def get_manageable_product_for_user(user, product_id):
+    assigned_store = get_assigned_store(user)
+    if assigned_store is None:
+        return None
+
+    return (
+        Product.objects.filter(
+            product_id=product_id,
+            inventory__warehouse__store=assigned_store,
+        )
+        .distinct()
+        .first()
+    )
 
 
 def get_or_create_brand(brand_name):
@@ -126,22 +154,43 @@ def parse_stock(value):
     return stock if stock >= 0 else None
 
 
-def set_product_stock(product, stock, user=None):
+def set_product_stock(product, stock, user=None, unit_price=None):
     warehouse = get_warehouse_for_user(user) if user else get_warehouse_for_user(None)
     inventory, _ = Inventory.objects.get_or_create(
         product=product,
         warehouse=warehouse,
-        defaults={"quantity": stock},
+        defaults={
+            "quantity": stock,
+            "unit_price": unit_price if unit_price is not None else product.price,
+        },
     )
     inventory.quantity = stock
+    if unit_price is not None:
+        inventory.unit_price = unit_price
+    elif inventory.unit_price is None:
+        inventory.unit_price = product.price
     inventory.save()
+
+
+def set_store_price_for_user(product, price, user):
+    assigned_store = get_assigned_store(user)
+    if assigned_store is None:
+        return
+
+    (
+        Inventory.objects.filter(product=product, warehouse__store=assigned_store)
+        .update(unit_price=price)
+    )
 
 
 class ProductListAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        products = get_product_queryset().order_by("name")
+        products = filter_products_for_request(
+            get_product_queryset().order_by("name"),
+            request,
+        )
         serializer = ProductSerializer(
             products,
             many=True,
@@ -154,6 +203,12 @@ class ProductListAPI(APIView):
         if not is_staff_account(request.user):
             return Response(
                 {"detail": "Only staff can add products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if get_assigned_store(request.user) is None:
+            return Response(
+                {"detail": "Staff must be assigned to a store before adding products."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -181,7 +236,7 @@ class ProductListAPI(APIView):
             image=image,
         )
         set_product_category(product, category_name)
-        set_product_stock(product, stock, request.user)
+        set_product_stock(product, stock, request.user, unit_price=price)
 
         fresh_product = get_product_queryset().get(product_id=product.product_id)
         return Response(
@@ -193,12 +248,13 @@ class ProductListAPI(APIView):
 class ProductDetailAPI(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_product(self, product_id):
-        return get_product_queryset().get(product_id=product_id)
+    def get_product(self, request, product_id):
+        queryset = filter_products_for_request(get_product_queryset(), request)
+        return queryset.get(product_id=product_id)
 
     def get(self, request, product_id):
         try:
-            product = self.get_product(product_id)
+            product = self.get_product(request, product_id)
         except Product.DoesNotExist:
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -217,9 +273,8 @@ class ProductDetailAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        try:
-            product = Product.objects.get(product_id=product_id)
-        except Product.DoesNotExist:
+        product = get_manageable_product_for_user(request.user, product_id)
+        if product is None:
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if "name" in request.data:
@@ -233,6 +288,7 @@ class ProductDetailAPI(APIView):
             if price is None:
                 return Response({"price": ["Enter a valid non-negative price."]}, status=400)
             product.price = price
+            set_store_price_for_user(product, price, request.user)
 
         if "brand_name" in request.data:
             brand_name = str(request.data.get("brand_name", "")).strip()
@@ -252,9 +308,12 @@ class ProductDetailAPI(APIView):
             stock = parse_stock(request.data.get("stock"))
             if stock is None:
                 return Response({"stock": ["Enter a valid non-negative stock quantity."]}, status=400)
-            set_product_stock(product, stock, request.user)
+            price_for_store = None
+            if "price" in request.data:
+                price_for_store = price
+            set_product_stock(product, stock, request.user, unit_price=price_for_store)
 
-        fresh_product = self.get_product(product_id)
+        fresh_product = self.get_product(request, product_id)
         return Response(
             ProductSerializer(fresh_product, context=build_serializer_context(request)).data
         )
@@ -267,9 +326,8 @@ class ProductDetailAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        try:
-            product = Product.objects.get(product_id=product_id)
-        except Product.DoesNotExist:
+        product = get_manageable_product_for_user(request.user, product_id)
+        if product is None:
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
         product.delete()

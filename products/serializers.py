@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db.models import Avg, Count
 from rest_framework import serializers
 
-from discounts.utils import get_best_discount
+from discounts.utils import get_best_discount, get_effective_price_for_base_price
 from inventory.models import Inventory
 
 from .models import Category, Product, ProductCategory
@@ -24,6 +24,7 @@ class ReviewSummarySerializer(serializers.Serializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    price = serializers.SerializerMethodField()
     brand_name = serializers.CharField(source="brand.name", read_only=True)
     stock = serializers.SerializerMethodField()
     store_name = serializers.SerializerMethodField()
@@ -61,11 +62,23 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
 
     def get_stock(self, obj):
-        return sum(inventory.quantity for inventory in self._get_inventory_rows(obj))
+        return sum(inventory.quantity for inventory in self._get_scoped_inventory_rows(obj))
+
+    def get_price(self, obj):
+        inventory = next(
+            (
+                row
+                for row in self._get_scoped_inventory_rows(obj)
+                if row.unit_price is not None
+            ),
+            None,
+        )
+        unit_price = inventory.unit_price if inventory and inventory.unit_price is not None else obj.price
+        return str(unit_price.quantize(Decimal("0.01")))
 
     def get_store_name(self, obj):
         inventory = next(
-            (row for row in self._get_inventory_rows(obj) if row.quantity > 0),
+            (row for row in self._get_scoped_inventory_rows(obj) if row.quantity > 0),
             None,
         )
         if inventory and inventory.warehouse and inventory.warehouse.store:
@@ -81,28 +94,52 @@ class ProductSerializer(serializers.ModelSerializer):
             Inventory.objects.filter(product=obj).select_related("warehouse__store")
         )
 
+    def _get_scoped_inventory_rows(self, obj):
+        rows = self._get_inventory_rows(obj)
+        assigned_store = self.context.get("assigned_store")
+        if assigned_store is None:
+            return rows
+        return [
+            row for row in rows
+            if row.warehouse and row.warehouse.store_id == assigned_store.store_id
+        ]
+
     def get_available_stores(self, obj):
-        stores = []
-        for inventory in self._get_inventory_rows(obj):
+        stores = {}
+        for inventory in self._get_scoped_inventory_rows(obj):
             warehouse = inventory.warehouse
             store = warehouse.store if warehouse else None
 
             if inventory.quantity <= 0 or warehouse is None or store is None:
                 continue
 
-            stores.append(
-                {
+            store_key = store.store_id
+            unit_price = inventory.unit_price if inventory.unit_price is not None else obj.price
+            discounted_price = get_effective_price_for_base_price(obj, unit_price)
+
+            if store_key not in stores:
+                stores[store_key] = {
                     "warehouse_id": warehouse.warehouse_id,
                     "warehouse_location": warehouse.location,
                     "store_id": store.store_id,
                     "store_name": store.name,
                     "store_location": store.location,
-                    "quantity": inventory.quantity,
+                    "quantity": 0,
+                    "price": str(unit_price.quantize(Decimal("0.01"))),
+                    "discounted_price": str(discounted_price.quantize(Decimal("0.01"))),
                 }
-            )
 
-        stores.sort(key=lambda item: (item["store_name"], item["warehouse_location"]))
-        return stores
+            stores[store_key]["quantity"] += inventory.quantity
+            if (
+                inventory.unit_price is not None
+                and stores[store_key]["price"] == str(obj.price.quantize(Decimal("0.01")))
+            ):
+                stores[store_key]["price"] = str(unit_price.quantize(Decimal("0.01")))
+                stores[store_key]["discounted_price"] = str(
+                    discounted_price.quantize(Decimal("0.01"))
+                )
+
+        return sorted(stores.values(), key=lambda item: item["store_name"])
 
     def _get_product_categories(self, obj):
         prefetched = getattr(obj, "_prefetched_objects_cache", {}).get(
@@ -135,8 +172,9 @@ class ProductSerializer(serializers.ModelSerializer):
         discount = self._get_active_discount(obj)
         if not discount:
             return None
-        reduction = Decimal(obj.price) * Decimal(discount.discount_percent) / Decimal("100")
-        return str((Decimal(obj.price) - reduction).quantize(Decimal("0.01")))
+        return str(
+            get_effective_price_for_base_price(obj, Decimal(self.get_price(obj))).quantize(Decimal("0.01"))
+        )
 
     def get_discount_name(self, obj):
         discount = self._get_active_discount(obj)

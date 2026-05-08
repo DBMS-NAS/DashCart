@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import axios from "../utils/axiosInstance";
 import CustomerProductCard from "../components/CustomerProductCard";
 import ProductStars from "../components/ProductStars";
 import { API_BASE_URL, mediaUrl } from "../utils/api";
 import { getCurrentUser } from "../utils/auth";
+import { flattenProductsToStoreListings } from "../utils/storeListings";
 
 function ReviewStars({ rating }) {
   const value = Number(rating);
@@ -20,13 +21,12 @@ function ReviewStars({ rating }) {
 
 function ProductDetails() {
   const { productId } = useParams();
+  const [searchParams] = useSearchParams();
   const user = getCurrentUser();
   const isStaff = user?.role === "staff";
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [relatedQuantities, setRelatedQuantities] = useState({});
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
-  const [relatedWarehouses, setRelatedWarehouses] = useState({});
   const [favoriteLoadingIds, setFavoriteLoadingIds] = useState({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -40,7 +40,6 @@ function ProductDetails() {
       try {
         const response = await axios.get(`${API_BASE_URL}/api/products/${productId}/`);
         setProduct(response.data);
-        setSelectedWarehouseId(response.data.available_stores?.[0]?.warehouse_id || "");
       } catch (err) {
         setError(err.response?.data?.detail || "Could not load product details.");
       } finally {
@@ -50,9 +49,6 @@ function ProductDetails() {
 
     loadProduct();
   }, [productId]);
-
-  const getRelatedWarehouseId = (targetProduct) =>
-    relatedWarehouses[targetProduct.product_id] || targetProduct.available_stores?.[0]?.warehouse_id || "";
 
   const addToCart = async (targetProductId, warehouseId, targetQuantity = 1) => {
     setError("");
@@ -133,7 +129,16 @@ function ProductDetails() {
     );
   }
 
-  const currentPrice = product.discounted_price || product.price;
+  const selectedWarehouseId =
+    searchParams.get("warehouse") || product.available_stores?.[0]?.warehouse_id || "";
+  const selectedStore =
+    product.available_stores?.find((store) => store.warehouse_id === selectedWarehouseId) ||
+    product.available_stores?.[0] ||
+    null;
+  const currentPrice = selectedStore?.discounted_price || selectedStore?.price || product.discounted_price || product.price;
+  const currentBasePrice = selectedStore?.price || product.price;
+  const currentStock = selectedStore?.quantity ?? product.stock;
+  const relatedListings = flattenProductsToStoreListings(product.related_products || []).slice(0, 4);
 
   return (
     <div className="space-y-8">
@@ -174,19 +179,22 @@ function ProductDetails() {
               size="lg"
             />
           </div>
-          <p className="mt-4 text-sm text-slate-400">Available from {product.store_name}</p>
+          <p className="mt-4 text-sm text-slate-400">
+            Available from {selectedStore?.store_name || product.store_name}
+            {selectedStore?.store_location ? ` · ${selectedStore.store_location}` : ""}
+          </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            {product.discounted_price ? (
+            {selectedStore?.discounted_price ? (
               <>
-                <span className="text-xl text-slate-400 line-through">${product.price}</span>
-                <span className="text-4xl font-bold text-amber-500">${product.discounted_price}</span>
-                <span className="premium-badge rounded-full px-3 py-1 text-sm">
+                <span className="text-xl text-slate-400 line-through">${currentBasePrice}</span>
+                <span className="text-4xl font-bold text-red-600">${selectedStore.discounted_price}</span>
+                <span className="discount-badge rounded-full px-3 py-1 text-sm">
                   {product.discount_percent}% OFF
                 </span>
               </>
             ) : (
-              <span className="text-4xl font-bold text-slate-50">${product.price}</span>
+              <span className="text-4xl font-bold text-amber-500">${currentBasePrice}</span>
             )}
           </div>
 
@@ -195,13 +203,13 @@ function ProductDetails() {
               <div>
                 <p className="page-eyebrow">Availability</p>
                 <p className={`mt-1 text-sm ${
-                  product.stock <= 0
+                  currentStock <= 0
                     ? "text-red-500"
-                    : product.stock <= 5
+                    : currentStock <= 5
                       ? "text-orange-500"
                       : "text-green-600"
                 }`}>
-                  {product.stock <= 0 ? "Out of stock" : `${product.stock} items ready to ship`}
+                  {currentStock <= 0 ? "Out of stock" : `${currentStock} items ready to ship`}
                 </p>
               </div>
               {!isStaff && (
@@ -222,20 +230,6 @@ function ProductDetails() {
 
             {!isStaff && (
               <>
-                {product.available_stores?.length > 0 && (
-                  <select
-                    className="mt-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700"
-                    value={selectedWarehouseId}
-                    onChange={(event) => setSelectedWarehouseId(event.target.value)}
-                  >
-                    {product.available_stores.map((store) => (
-                      <option key={store.warehouse_id} value={store.warehouse_id}>
-                        {store.store_name} · {store.store_location} ({store.quantity} available)
-                      </option>
-                    ))}
-                  </select>
-                )}
-
                 <div className="mt-4 flex items-center justify-between rounded-lg border bg-white p-1">
                   <button
                     type="button"
@@ -248,8 +242,8 @@ function ProductDetails() {
                   <span className="font-semibold">{quantity}</span>
                   <button
                     type="button"
-                    onClick={() => setQuantity((prev) => Math.min(product.stock, prev + 1))}
-                    disabled={quantity >= product.stock}
+                    onClick={() => setQuantity((prev) => Math.min(currentStock, prev + 1))}
+                    disabled={quantity >= currentStock}
                     className="px-4 py-2 text-lg font-bold text-slate-600 disabled:opacity-30"
                   >
                     +
@@ -260,10 +254,10 @@ function ProductDetails() {
                   <button
                     type="button"
                     onClick={() => addToCart(product.product_id, selectedWarehouseId, quantity)}
-                    disabled={product.stock <= 0 || !selectedWarehouseId}
+                    disabled={currentStock <= 0 || !selectedWarehouseId}
                     className="rounded bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
-                    {product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
+                    {currentStock <= 0 ? "Out of Stock" : "Add to Cart"}
                   </button>
                   <Link
                     className="premium-button-ghost px-5 py-3 text-sm"
@@ -285,7 +279,7 @@ function ProductDetails() {
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <div className="premium-card rounded-[1.5rem] p-4">
               <p className="page-eyebrow">Current price</p>
-              <p className="mt-3 text-2xl font-bold text-slate-50">${currentPrice}</p>
+              <p className={`mt-3 text-2xl font-bold ${selectedStore?.discounted_price ? "text-red-600" : "text-amber-500"}`}>${currentPrice}</p>
             </div>
             <div className="premium-card rounded-[1.5rem] p-4">
               <p className="page-eyebrow">Customer reviews</p>
@@ -331,24 +325,21 @@ function ProductDetails() {
             Similar items from the same categories.
           </p>
 
-          {product.related_products.length === 0 ? (
+          {relatedListings.length === 0 ? (
             <p className="mt-6 text-slate-600">No related products available yet.</p>
           ) : (
             <div className="mt-6 space-y-5">
-              {product.related_products.map((relatedProduct) => (
+              {relatedListings.map((relatedProduct) => (
                 <CustomerProductCard
-                  key={relatedProduct.product_id}
+                  key={relatedProduct.listing_id}
                   product={relatedProduct}
-                  quantity={relatedQuantities[relatedProduct.product_id] || 1}
-                  onIncrease={(targetProductId, max) => updateRelatedQuantity(targetProductId, 1, max)}
-                  onDecrease={(targetProductId, max) => updateRelatedQuantity(targetProductId, -1, max)}
+                  quantity={relatedQuantities[relatedProduct.listing_id] || 1}
+                  onIncrease={(_, max) => updateRelatedQuantity(relatedProduct.listing_id, 1, max)}
+                  onDecrease={(_, max) => updateRelatedQuantity(relatedProduct.listing_id, -1, max)}
                   onAddToCart={(targetProductId, warehouseId) =>
-                    addToCart(targetProductId, warehouseId, relatedQuantities[targetProductId] || 1)
+                    addToCart(targetProductId, warehouseId, relatedQuantities[relatedProduct.listing_id] || 1)
                   }
-                  onSelectWarehouse={(targetProductId, warehouseId) =>
-                    setRelatedWarehouses((prev) => ({ ...prev, [targetProductId]: warehouseId }))
-                  }
-                  selectedWarehouseId={getRelatedWarehouseId(relatedProduct)}
+                  selectedWarehouseId={relatedProduct.warehouse_id}
                   onToggleFavorite={!isStaff ? toggleFavorite : null}
                   favoritePending={Boolean(favoriteLoadingIds[relatedProduct.product_id])}
                 />

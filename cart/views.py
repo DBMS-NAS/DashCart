@@ -11,7 +11,7 @@ from backend.mysql_routines import (
     get_database_error_message,
     using_mysql,
 )
-from discounts.utils import get_effective_price
+from discounts.utils import get_effective_price_for_base_price
 from inventory.models import Inventory
 from orders.models import Order, OrderItem
 from payments.models import Payment
@@ -72,6 +72,32 @@ def get_inventory_for_product(product, warehouse):
     return Inventory.objects.filter(product=product, warehouse=warehouse).first()
 
 
+def get_store_inventory_queryset(product, warehouse):
+    if warehouse is None:
+        return Inventory.objects.none()
+
+    return Inventory.objects.filter(
+        product=product,
+        warehouse__store=warehouse.store,
+    ).select_related("warehouse", "warehouse__store")
+
+
+def get_store_available_quantity(product, warehouse):
+    return sum(inventory.quantity for inventory in get_store_inventory_queryset(product, warehouse))
+
+
+def get_store_unit_price(product, warehouse):
+    inventory = (
+        get_store_inventory_queryset(product, warehouse)
+        .exclude(unit_price__isnull=True)
+        .order_by("warehouse__location")
+        .first()
+    )
+    if inventory and inventory.unit_price is not None:
+        return inventory.unit_price
+    return product.price
+
+
 class CartAPI(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -119,7 +145,8 @@ class AddToCartAPI(APIView):
             )
 
         inventory = get_inventory_for_product(product, warehouse)
-        if inventory is None or inventory.quantity <= 0:
+        available_quantity = get_store_available_quantity(product, warehouse)
+        if inventory is None or available_quantity <= 0:
             return Response(
                 {"detail": "This product is not available in the selected store."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -135,25 +162,25 @@ class AddToCartAPI(APIView):
 
         if not created:
             next_quantity = item.quantity + quantity
-            if next_quantity > inventory.quantity:
+            if next_quantity > available_quantity:
                 return Response(
                     {
                         "detail": (
                             "Selected store does not have enough stock. "
-                            f"Available: {inventory.quantity}."
+                            f"Available: {available_quantity}."
                         )
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             item.quantity = next_quantity
             item.save(update_fields=["quantity"])
-        elif quantity > inventory.quantity:
+        elif quantity > available_quantity:
             item.delete()
             return Response(
                 {
                     "detail": (
                         "Selected store does not have enough stock. "
-                        f"Available: {inventory.quantity}."
+                        f"Available: {available_quantity}."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -188,8 +215,8 @@ class CartItemAPI(APIView):
             return Response({"detail": "Cart item not found."}, status=status.HTTP_404_NOT_FOUND)
 
         inventory = get_inventory_for_product(item.product, item.warehouse)
-        if inventory is None or quantity > inventory.quantity:
-            available = inventory.quantity if inventory else 0
+        available = get_store_available_quantity(item.product, item.warehouse)
+        if inventory is None or quantity > available:
             return Response(
                 {"detail": f"Selected store only has {available} unit(s) available."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -248,18 +275,20 @@ class CheckoutAPI(APIView):
                     )
 
                 inventory = get_inventory_for_product(item.product, item.warehouse)
-                if inventory is None:
+                available = get_store_available_quantity(item.product, item.warehouse)
+                if inventory is None or available <= 0:
                     raise ValidationError(
                         f"{item.product.name} is not available in the selected store."
                     )
 
+                unit_price = get_store_unit_price(item.product, item.warehouse)
                 order_item = OrderItem(
                     order=order,
                     product=item.product,
                     quantity=item.quantity,
-                    price=get_effective_price(item.product),
+                    price=get_effective_price_for_base_price(item.product, unit_price),
                 )
-                order_item._selected_warehouse = item.warehouse
+                order_item._selected_store = item.warehouse.store
                 order_item.save()
         except ValidationError as exc:
             order.delete()
@@ -270,7 +299,11 @@ class CheckoutAPI(APIView):
 
         try:
             total = sum(
-                Decimal(item.quantity) * get_effective_price(item.product)
+                Decimal(item.quantity)
+                * get_effective_price_for_base_price(
+                    item.product,
+                    get_store_unit_price(item.product, item.warehouse),
+                )
                 for item in items
             )
             Payment.objects.create(

@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "../utils/axiosInstance";
 
-import { API_BASE_URL, mediaUrl } from "../utils/api";
+import DealProductStrip from "../components/DealProductStrip";
+import { API_BASE_URL } from "../utils/api";
 import { getCurrentUser } from "../utils/auth";
+import { getStoreScopedProduct } from "../utils/storeListings";
 
 function Dashboard() {
   const user = getCurrentUser();
@@ -32,6 +34,7 @@ function Dashboard() {
                 Number.parseFloat(right.discount_percent || 0) -
                 Number.parseFloat(left.discount_percent || 0)
             )
+            .map((product) => getStoreScopedProduct(product))
         );
       } catch (err) {
         setError("Could not load dashboard data.");
@@ -99,83 +102,43 @@ function Dashboard() {
             <h3 className="display-heading mt-3 text-3xl text-slate-50">Navigate faster through quick actions</h3>
           </div>
           <div className="flex flex-wrap gap-3">
-        <Link className="premium-button px-5 py-3 text-sm" to="/products">
-          View Products
-        </Link>
-        {isStaff ? (
-          <>
-            <Link className="premium-button-ghost px-5 py-3 text-sm" to="/inventory">
-              Manage Inventory
+            <Link className="premium-button px-5 py-3 text-sm" to="/products">
+              View Products
             </Link>
-            <Link className="premium-button-secondary px-5 py-3 text-sm" to="/suppliers">
-              Manage Suppliers
-            </Link>
-          </>
-        ) : (
-          <>
-            <Link className="premium-button-ghost px-5 py-3 text-sm" to="/cart">
-              View Cart
-            </Link>
-            <Link className="premium-button-secondary px-5 py-3 text-sm" to="/wishlist">
-              View Wishlist
-            </Link>
-            <Link className="premium-button px-5 py-3 text-sm" to="/orders">
-              View Order History
-            </Link>
-          </>
-        )}
-      </div>
+            {isStaff ? (
+              <>
+                <Link className="premium-button-ghost px-5 py-3 text-sm" to="/inventory">
+                  Manage Inventory
+                </Link>
+                <Link className="premium-button-secondary px-5 py-3 text-sm" to="/suppliers">
+                  Manage Suppliers
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link className="premium-button-ghost px-5 py-3 text-sm" to="/cart">
+                  View Cart
+                </Link>
+                <Link className="premium-button-secondary px-5 py-3 text-sm" to="/wishlist">
+                  View Wishlist
+                </Link>
+                <Link className="premium-button px-5 py-3 text-sm" to="/orders">
+                  View Order History
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
 
       {!isLoading && !isStaff && dealProducts.length > 0 && (
-        <section className="mt-10 rounded-2xl bg-gradient-to-r from-red-50 via-amber-50 to-rose-50 p-6 shadow-sm">
-          <div className="mb-4">
-            <h3 className="text-2xl font-bold text-slate-900">Deals & Offers</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Browse every discounted product in one horizontal strip.
-            </p>
-          </div>
-
-          <div className="flex gap-5 overflow-x-auto pb-2">
-            {dealProducts.map((product) => (
-              <Link
-                key={product.product_id}
-                to={`/products/${product.product_id}`}
-                className="min-w-[260px] max-w-[260px] overflow-hidden rounded-2xl bg-white shadow transition hover:-translate-y-0.5 hover:shadow-lg"
-              >
-                <div className="relative h-40 bg-slate-100">
-                  {product.image ? (
-                    <img
-                      src={mediaUrl(product.image)}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                      No image
-                    </div>
-                  )}
-                  <span className="absolute left-3 top-3 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
-                    {product.discount_percent}% OFF
-                  </span>
-                </div>
-
-                <div className="p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    {product.brand_name}
-                  </p>
-                  <h4 className="mt-1 text-lg font-bold text-slate-900">{product.name}</h4>
-                  <p className="mt-1 text-sm text-slate-500">{product.store_name}</p>
-                  <div className="mt-4 flex items-center gap-2">
-                    <span className="text-sm text-slate-400 line-through">${product.price}</span>
-                    <span className="text-2xl font-bold text-red-600">
-                      ${product.discounted_price}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <div className="mt-10">
+          <DealProductStrip
+            products={dealProducts}
+            eyebrow="Special Pricing"
+            description="Browse every discounted product in one horizontal strip."
+          />
+        </div>
       )}
     </div>
   );

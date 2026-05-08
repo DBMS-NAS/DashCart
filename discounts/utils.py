@@ -16,8 +16,13 @@ def get_best_discount(product):
 
 def get_effective_price(product):
     """Returns the actual price to charge, applying the best assigned discount if any."""
+    return get_effective_price_for_base_price(product, product.price)
+
+
+def get_effective_price_for_base_price(product, base_price):
     discount = get_best_discount(product)
+    price = Decimal(base_price)
     if discount:
-        reduction = Decimal(product.price) * Decimal(discount.discount_percent) / Decimal("100")
-        return (Decimal(product.price) - reduction).quantize(Decimal("0.01"))
-    return product.price
+        reduction = price * Decimal(discount.discount_percent) / Decimal("100")
+        return (price - reduction).quantize(Decimal("0.01"))
+    return price

@@ -116,7 +116,10 @@ class Command(BaseCommand):
             Inventory.objects.update_or_create(
                 product=product,
                 warehouse=warehouse,
-                defaults={"quantity": item["stock"]},
+                defaults={
+                    "quantity": item["stock"],
+                    "unit_price": item["price"],
+                },
             )
 
         self.stdout.write(self.style.SUCCESS("Demo catalog seeded successfully."))
