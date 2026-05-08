@@ -20,6 +20,16 @@ from .serializers import (
 )
 
 
+def get_staff_store_or_response(request):
+    store = get_assigned_store(request.user)
+    if store is None:
+        return None, Response(
+            {"detail": "Staff must be assigned to a store to use inventory."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return store, None
+
+
 class InventoryProductListAPI(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -30,7 +40,15 @@ class InventoryProductListAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        products = Product.objects.all().order_by("name")
+        store, error_response = get_staff_store_or_response(request)
+        if error_response:
+            return error_response
+
+        products = (
+            Product.objects.filter(inventory__warehouse__store=store)
+            .distinct()
+            .order_by("name")
+        )
         return Response(InventoryProductOptionSerializer(products, many=True).data)
 
 
@@ -44,14 +62,15 @@ class InventoryListAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        store = get_assigned_store(request.user)
+        store, error_response = get_staff_store_or_response(request)
+        if error_response:
+            return error_response
+
         inventory = (
             Inventory.objects.select_related("product", "warehouse", "warehouse__store")
-            .all()
+            .filter(warehouse__store=store)
             .order_by("product__name", "warehouse__location")
         )
-        if store:
-            inventory = inventory.filter(warehouse__store=store)
         return Response(InventorySerializer(inventory, many=True).data)
 
 
@@ -65,11 +84,15 @@ class StockMovementListCreateAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        store, error_response = get_staff_store_or_response(request)
+        if error_response:
+            return error_response
+
         movements = StockMovement.objects.select_related(
             "product",
             "warehouse",
             "warehouse__store",
-        ).all()
+        ).filter(warehouse__store=store)
         return Response(StockMovementSerializer(movements, many=True).data)
 
     @transaction.atomic
@@ -80,12 +103,28 @@ class StockMovementListCreateAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        store, error_response = get_staff_store_or_response(request)
+        if error_response:
+            return error_response
+
         serializer = StockMovementSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.validated_data["product"]
         warehouse = serializer.validated_data["warehouse"]
         quantity = serializer.validated_data["quantity"]
         movement_type = serializer.validated_data["movement_type"]
+
+        if warehouse.store_id != store.store_id:
+            return Response(
+                {"detail": "You can only record stock movement for your store's warehouses."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not Inventory.objects.filter(product=product, warehouse__store=store).exists():
+            return Response(
+                {"detail": "You can only manage products currently stocked by your store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if using_mysql():
             try:
@@ -114,8 +153,10 @@ class StockMovementListCreateAPI(APIView):
         inventory, _ = Inventory.objects.select_for_update().get_or_create(
             product=product,
             warehouse=warehouse,
-            defaults={"quantity": 0},
+            defaults={"quantity": 0, "unit_price": product.price},
         )
+        if inventory.unit_price is None:
+            inventory.unit_price = product.price
 
         if movement_type == StockMovement.MOVEMENT_IN:
             inventory.quantity += quantity
@@ -153,6 +194,10 @@ class StockTransferCreateAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        store, error_response = get_staff_store_or_response(request)
+        if error_response:
+            return error_response
+
         serializer = StockTransferSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -160,6 +205,15 @@ class StockTransferCreateAPI(APIView):
         source_warehouse = serializer.validated_data["source_warehouse"]
         destination_warehouse = serializer.validated_data["destination_warehouse"]
         quantity = serializer.validated_data["quantity"]
+
+        if (
+            source_warehouse.store_id != store.store_id
+            or destination_warehouse.store_id != store.store_id
+        ):
+            return Response(
+                {"detail": "You can only transfer stock between warehouses in your store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         try:
             source_inventory = Inventory.objects.select_for_update().get(
@@ -186,8 +240,15 @@ class StockTransferCreateAPI(APIView):
         destination_inventory, _ = Inventory.objects.select_for_update().get_or_create(
             product=product,
             warehouse=destination_warehouse,
-            defaults={"quantity": 0},
+            defaults={
+                "quantity": 0,
+                "unit_price": source_inventory.unit_price if source_inventory.unit_price is not None else product.price,
+            },
         )
+        if destination_inventory.unit_price is None:
+            destination_inventory.unit_price = (
+                source_inventory.unit_price if source_inventory.unit_price is not None else product.price
+            )
 
         source_inventory.quantity -= quantity
         destination_inventory.quantity += quantity

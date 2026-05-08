@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from users.services import is_staff_account
+from users.services import get_assigned_store, is_staff_account
 from .models import Store, Warehouse
 from .serializers import StoreSerializer, WarehouseSerializer
 
@@ -20,20 +20,15 @@ class StoreListCreateAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        stores = Store.objects.all().order_by("name")
+        assigned_store = get_assigned_store(request.user)
+        stores = Store.objects.filter(store_id=assigned_store.store_id) if assigned_store else Store.objects.none()
         return Response(StoreSerializer(stores, many=True).data)
 
     def post(self, request):
-        if not is_staff_account(request.user):
-            return Response(
-                {"detail": "Only staff can add stores."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        serializer = StoreSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        store = serializer.save(store_id=f"STORE-{uuid4().hex[:8].upper()}")
-        return Response(StoreSerializer(store).data, status=status.HTTP_201_CREATED)
+        return Response(
+            {"detail": "Stores are managed centrally and cannot be created from this dashboard."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class WarehouseListCreateAPI(APIView):
@@ -46,10 +41,12 @@ class WarehouseListCreateAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        warehouses = Warehouse.objects.select_related("store").all().order_by(
-            "store__name",
-            "location",
-        )
+        assigned_store = get_assigned_store(request.user)
+        warehouses = Warehouse.objects.select_related("store").order_by("location")
+        if assigned_store is None:
+            warehouses = warehouses.none()
+        else:
+            warehouses = warehouses.filter(store=assigned_store)
         return Response(WarehouseSerializer(warehouses, many=True).data)
 
     def post(self, request):
@@ -59,7 +56,19 @@ class WarehouseListCreateAPI(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        serializer = WarehouseSerializer(data=request.data)
+        assigned_store = get_assigned_store(request.user)
+        if assigned_store is None:
+            return Response(
+                {"detail": "Staff must be assigned to a store before adding warehouses."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = WarehouseSerializer(
+            data={
+                "store": assigned_store.store_id,
+                "location": request.data.get("location"),
+            }
+        )
         serializer.is_valid(raise_exception=True)
         warehouse = serializer.save(warehouse_id=f"WH-{uuid4().hex[:8].upper()}")
         return Response(

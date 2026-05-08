@@ -3,13 +3,7 @@ import axios from "../utils/axiosInstance";
 
 import { API_BASE_URL } from "../utils/api";
 
-const storeInitialState = {
-  name: "",
-  location: "",
-};
-
 const warehouseInitialState = {
-  store: "",
   location: "",
 };
 
@@ -35,19 +29,19 @@ function Inventory() {
   const [warehouses, setWarehouses] = useState([]);
   const [movements, setMovements] = useState([]);
   const [productFilter, setProductFilter] = useState("");
-  const [storeFilter, setStoreFilter] = useState("");
   const [warehouseFilter, setWarehouseFilter] = useState("");
-  const [storeForm, setStoreForm] = useState(storeInitialState);
+  const [movementSearch, setMovementSearch] = useState("");
+  const [movementTypeFilter, setMovementTypeFilter] = useState("");
   const [warehouseForm, setWarehouseForm] = useState(warehouseInitialState);
   const [movementForm, setMovementForm] = useState(movementInitialState);
   const [transferForm, setTransferForm] = useState(transferInitialState);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isSavingStore, setIsSavingStore] = useState(false);
   const [isSavingWarehouse, setIsSavingWarehouse] = useState(false);
   const [isSavingMovement, setIsSavingMovement] = useState(false);
   const [isSavingTransfer, setIsSavingTransfer] = useState(false);
+  const currentStore = stores[0];
 
   const loadData = async () => {
     setError("");
@@ -84,10 +78,6 @@ function Inventory() {
     loadData();
   }, []);
 
-  const handleStoreChange = (event) => {
-    setStoreForm({ ...storeForm, [event.target.name]: event.target.value });
-  };
-
   const handleWarehouseChange = (event) => {
     setWarehouseForm({ ...warehouseForm, [event.target.name]: event.target.value });
   };
@@ -98,30 +88,6 @@ function Inventory() {
 
   const handleTransferChange = (event) => {
     setTransferForm({ ...transferForm, [event.target.name]: event.target.value });
-  };
-
-  const handleStoreSave = async (event) => {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-    setIsSavingStore(true);
-
-    try {
-      await axios.post(`${API_BASE_URL}/api/stores/`, storeForm);
-      setStoreForm(storeInitialState);
-      setMessage("Store added.");
-      await loadData();
-    } catch (err) {
-      const responseErrors = err.response?.data;
-      setError(
-        responseErrors?.detail ||
-          responseErrors?.name?.[0] ||
-          responseErrors?.location?.[0] ||
-          "Could not add store."
-      );
-    } finally {
-      setIsSavingStore(false);
-    }
   };
 
   const handleWarehouseSave = async (event) => {
@@ -219,11 +185,24 @@ function Inventory() {
   const filteredInventory = useMemo(() => {
     return inventory.filter((item) => {
       const matchesProduct = !productFilter || item.product_id === productFilter;
-      const matchesStore = !storeFilter || item.store_name === storeFilter;
       const matchesWarehouse = !warehouseFilter || item.warehouse_id === warehouseFilter;
-      return matchesProduct && matchesStore && matchesWarehouse;
+      return matchesProduct && matchesWarehouse;
     });
-  }, [inventory, productFilter, storeFilter, warehouseFilter]);
+  }, [inventory, productFilter, warehouseFilter]);
+
+  const filteredMovements = useMemo(() => {
+    const query = movementSearch.trim().toLowerCase();
+
+    return movements.filter((movement) => {
+      const matchesSearch =
+        !query ||
+        movement.product_name?.toLowerCase().includes(query) ||
+        movement.warehouse_location?.toLowerCase().includes(query);
+      const matchesType = !movementTypeFilter || movement.type === movementTypeFilter;
+
+      return matchesSearch && matchesType;
+    });
+  }, [movementSearch, movementTypeFilter, movements]);
 
   return (
     <div>
@@ -276,40 +255,22 @@ function Inventory() {
                 </select>
                 <select
                   className="premium-input rounded-2xl px-4 py-3 text-sm"
-                  value={storeFilter}
-                  onChange={(event) => {
-                    setStoreFilter(event.target.value);
-                    setWarehouseFilter("");
-                  }}
-                >
-                  <option value="">All stores</option>
-                  {stores.map((store) => (
-                    <option key={store.store_id} value={store.name}>
-                      {store.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="premium-input rounded-2xl px-4 py-3 text-sm"
                   value={warehouseFilter}
                   onChange={(event) => setWarehouseFilter(event.target.value)}
                 >
                   <option value="">All warehouses</option>
-                  {warehouses
-                    .filter((warehouse) => !storeFilter || warehouse.store_name === storeFilter)
-                    .map((warehouse) => (
-                      <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
-                        {warehouse.store_name} - {warehouse.store_location || warehouse.location}
-                      </option>
-                    ))}
+                  {warehouses.map((warehouse) => (
+                    <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
+                      {warehouse.location}
+                    </option>
+                  ))}
                 </select>
-                {(productFilter || storeFilter || warehouseFilter) && (
+                {(productFilter || warehouseFilter) && (
                   <button
                     type="button"
                     className="premium-button-ghost px-4 py-3 text-sm"
                     onClick={() => {
                       setProductFilter("");
-                      setStoreFilter("");
                       setWarehouseFilter("");
                     }}
                   >
@@ -330,7 +291,6 @@ function Inventory() {
                     <tr>
                       <th className="p-3 text-left">Product</th>
                       <th className="p-3 text-left">Price</th>
-                      <th className="p-3 text-left">Store</th>
                       <th className="p-3 text-left">Warehouse</th>
                       <th className="p-3 text-left">Stock</th>
                     </tr>
@@ -340,7 +300,6 @@ function Inventory() {
                       <tr key={item.id} className="border-t">
                         <td className="p-3">{item.product_name}</td>
                         <td className="p-3">${item.product_price}</td>
-                        <td className="p-3">{item.store_name}</td>
                         <td className="p-3">{item.warehouse_location}</td>
                         <td className="p-3">{item.quantity}</td>
                       </tr>
@@ -352,7 +311,8 @@ function Inventory() {
           </div>
         )
       ) : activeTab === "movements" ? (
-        <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[360px,360px,minmax(0,1fr)]">
+        <div className="space-y-6">
+          <div className="grid gap-6 xl:grid-cols-2">
           <form className="rounded-xl bg-white p-5 shadow" onSubmit={handleMovementSave}>
             <h3 className="mb-4 text-xl font-semibold">Record Stock Movement</h3>
             <select
@@ -377,7 +337,7 @@ function Inventory() {
               <option value="">Select warehouse</option>
               {warehouses.map((warehouse) => (
                 <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
-                  {warehouse.store_name} - {warehouse.store_location || warehouse.location}
+                  {warehouse.location}
                 </option>
               ))}
             </select>
@@ -437,7 +397,7 @@ function Inventory() {
               <option value="">Source warehouse</option>
               {warehouses.map((warehouse) => (
                 <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
-                  {warehouse.store_name} - {warehouse.store_location || warehouse.location}
+                  {warehouse.location}
                 </option>
               ))}
             </select>
@@ -452,7 +412,7 @@ function Inventory() {
                 .filter((warehouse) => warehouse.warehouse_id !== transferForm.source_warehouse)
                 .map((warehouse) => (
                   <option key={warehouse.warehouse_id} value={warehouse.warehouse_id}>
-                    {warehouse.store_name} - {warehouse.store_location || warehouse.location}
+                    {warehouse.location}
                   </option>
                 ))}
             </select>
@@ -472,24 +432,52 @@ function Inventory() {
             >
               {isSavingTransfer ? "Transferring..." : "Transfer Stock"}
             </button>
-            {(products.length === 0 || warehouses.length < 2) && (
-              <p className="mt-3 text-sm text-amber-700">
-                Add products and at least two warehouses before transferring stock.
-              </p>
-            )}
           </form>
+          </div>
 
-          <div className="min-w-0 rounded-xl bg-white p-5 shadow xl:col-span-2 2xl:col-span-1">
+          <div className="min-w-0 rounded-xl bg-white p-5 shadow">
             <h3 className="mb-4 text-xl font-semibold">Movement History</h3>
+            <div className="mb-4 flex flex-wrap gap-3">
+              <input
+                type="text"
+                className="premium-input min-w-[220px] flex-1 rounded-2xl px-4 py-3 text-sm"
+                placeholder="Search by product or warehouse..."
+                value={movementSearch}
+                onChange={(event) => setMovementSearch(event.target.value)}
+              />
+              <select
+                className="premium-input rounded-2xl px-4 py-3 text-sm"
+                value={movementTypeFilter}
+                onChange={(event) => setMovementTypeFilter(event.target.value)}
+              >
+                <option value="">All types</option>
+                <option value="in">Stock In</option>
+                <option value="out">Stock Out</option>
+              </select>
+              {(movementSearch || movementTypeFilter) && (
+                <button
+                  type="button"
+                  className="premium-button-ghost px-4 py-3 text-sm"
+                  onClick={() => {
+                    setMovementSearch("");
+                    setMovementTypeFilter("");
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
             {movements.length === 0 ? (
               <p className="text-slate-600">No stock movements recorded yet.</p>
+            ) : filteredMovements.length === 0 ? (
+              <p className="text-slate-600">No movement rows match the selected filters.</p>
             ) : (
-              <div className="overflow-x-auto pb-1">
+              <div className="max-h-[460px] overflow-auto pb-1">
                 <table className="min-w-[780px] w-full">
                   <thead className="border-b bg-slate-50">
                     <tr>
                       <th className="p-3 text-left">Product</th>
-                      <th className="p-3 text-left">Store</th>
                       <th className="p-3 text-left">Warehouse</th>
                       <th className="p-3 text-left">Type</th>
                       <th className="p-3 text-left">Qty</th>
@@ -497,10 +485,9 @@ function Inventory() {
                     </tr>
                   </thead>
                   <tbody>
-                    {movements.map((movement) => (
+                    {filteredMovements.map((movement) => (
                       <tr className="border-b" key={movement.movement_id}>
                         <td className="p-3">{movement.product_name}</td>
-                        <td className="p-3">{movement.store_name}</td>
                         <td className="p-3">{movement.warehouse_location}</td>
                         <td className="p-3 capitalize">{movement.type}</td>
                         <td className="p-3">{movement.quantity}</td>
@@ -519,47 +506,14 @@ function Inventory() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-2">
-            <form className="rounded-xl bg-white p-5 shadow" onSubmit={handleStoreSave}>
-              <h3 className="mb-4 text-xl font-semibold">Add Store</h3>
-              <input
-                className="mb-3 w-full rounded border p-2"
-                name="name"
-                onChange={handleStoreChange}
-                placeholder="Store Name"
-                value={storeForm.name}
-              />
-              <input
-                className="mb-4 w-full rounded border p-2"
-                name="location"
-                onChange={handleStoreChange}
-                placeholder="Store Location"
-                value={storeForm.location}
-              />
-              <button
-                className="rounded bg-blue-600 px-4 py-2 text-white disabled:bg-slate-400"
-                disabled={isSavingStore}
-                type="submit"
-              >
-                {isSavingStore ? "Saving..." : "Add Store"}
-              </button>
-            </form>
-
+          <div className="grid gap-6">
             <form className="rounded-xl bg-white p-5 shadow" onSubmit={handleWarehouseSave}>
               <h3 className="mb-4 text-xl font-semibold">Add Warehouse</h3>
-              <select
-                className="mb-3 w-full rounded border p-2"
-                name="store"
-                onChange={handleWarehouseChange}
-                value={warehouseForm.store}
-              >
-                <option value="">Select store</option>
-                {stores.map((store) => (
-                  <option key={store.store_id} value={store.store_id}>
-                    {store.name}
-                  </option>
-                ))}
-              </select>
+              <p className="mb-3 text-sm text-slate-500">
+                {currentStore
+                  ? `This warehouse will be added to ${currentStore.name}.`
+                  : "Warehouses can be added after a store is assigned to this staff account."}
+              </p>
               <input
                 className="mb-4 w-full rounded border p-2"
                 name="location"
@@ -592,7 +546,6 @@ function Inventory() {
                   <thead className="border-b bg-slate-50">
                     <tr>
                       <th className="p-3 text-left">Warehouse ID</th>
-                      <th className="p-3 text-left">Store</th>
                       <th className="p-3 text-left">Location</th>
                     </tr>
                   </thead>
@@ -600,8 +553,7 @@ function Inventory() {
                     {warehouses.map((warehouse) => (
                       <tr className="border-b" key={warehouse.warehouse_id}>
                         <td className="p-3">{warehouse.warehouse_id}</td>
-                        <td className="p-3">{warehouse.store_name}</td>
-                        <td className="p-3">{warehouse.store_location || warehouse.location}</td>
+                        <td className="p-3">{warehouse.location}</td>
                       </tr>
                     ))}
                   </tbody>

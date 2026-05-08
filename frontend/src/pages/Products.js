@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 
-import { Link } from "react-router-dom";
-
 import CustomerProductCard from "../components/CustomerProductCard";
+import DealProductStrip from "../components/DealProductStrip";
 import { API_BASE_URL, mediaUrl } from "../utils/api";
 import { getCurrentUser } from "../utils/auth";
+import { flattenProductsToStoreListings } from "../utils/storeListings";
 
 const initialProductForm = {
   name: "",
@@ -31,7 +31,6 @@ function Products() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [quantities, setQuantities] = useState({});
-  const [selectedWarehouses, setSelectedWarehouses] = useState({});
   const [favoriteLoadingIds, setFavoriteLoadingIds] = useState({});
   const [form, setForm] = useState(initialProductForm);
   const [showForm, setShowForm] = useState(false);
@@ -63,21 +62,28 @@ function Products() {
     loadProducts();
   }, []);
 
+  const customerListings = useMemo(
+    () => flattenProductsToStoreListings(products),
+    [products]
+  );
+
   const dealProducts = useMemo(
     () =>
-      products
+      customerListings
         .filter((product) => Boolean(product.discounted_price))
         .sort(
           (left, right) =>
             Number.parseFloat(right.discount_percent || 0) -
-            Number.parseFloat(left.discount_percent || 0)
+                Number.parseFloat(left.discount_percent || 0)
         )
         .slice(0, 4),
-    [products]
+    [customerListings]
   );
 
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    const productPool = isStaff ? products : customerListings;
+
+    return productPool.filter((product) => {
       const q = search.toLowerCase();
       const effectivePrice = getEffectivePrice(product);
       const productCategories = product.category_names || [];
@@ -86,7 +92,7 @@ function Products() {
         product.name.toLowerCase().includes(q) ||
         product.brand_name?.toLowerCase().includes(q) ||
         productCategories.some((category) => category.toLowerCase().includes(q)) ||
-        product.store_name?.toLowerCase().includes(q) ||
+        (!isStaff && product.store_name?.toLowerCase().includes(q)) ||
         product.discount_name?.toLowerCase().includes(q);
 
       const matchesCategory =
@@ -96,7 +102,7 @@ function Products() {
 
       return matchesSearch && matchesCategory && matchesMin && matchesMax;
     });
-  }, [categoryFilter, maxPrice, minPrice, products, search]);
+  }, [categoryFilter, customerListings, isStaff, maxPrice, minPrice, products, search]);
 
   const sortedProducts = useMemo(() => {
     const copy = [...filteredProducts];
@@ -196,21 +202,14 @@ function Products() {
     }
   };
 
-  const getQuantity = (productId) => quantities[productId] || 1;
+  const getQuantity = (listingId) => quantities[listingId] || 1;
 
-  const getSelectedWarehouseId = (product) =>
-    selectedWarehouses[product.product_id] || product.available_stores?.[0]?.warehouse_id || "";
-
-  const changeQuantity = (productId, delta, max) => {
+  const changeQuantity = (listingId, delta, max) => {
     setQuantities((prev) => {
-      const current = prev[productId] || 1;
+      const current = prev[listingId] || 1;
       const next = Math.min(Math.max(1, current + delta), max);
-      return { ...prev, [productId]: next };
+      return { ...prev, [listingId]: next };
     });
-  };
-
-  const handleWarehouseChange = (productId, warehouseId) => {
-    setSelectedWarehouses((prev) => ({ ...prev, [productId]: warehouseId }));
   };
 
   const addToCart = async (productId, warehouseId) => {
@@ -220,7 +219,7 @@ function Products() {
       await axios.post(`${API_BASE_URL}/api/cart/add/`, {
         product_id: productId,
         warehouse_id: warehouseId,
-        quantity: getQuantity(productId),
+        quantity: getQuantity(`${productId}:${warehouseId}`),
       });
       setMessage("Product added to cart.");
     } catch (err) {
@@ -267,7 +266,11 @@ function Products() {
         <div>
           <p className="page-eyebrow">{isStaff ? "Catalog Control" : "Curated Collection"}</p>
           <h2 className="display-heading mt-3 text-4xl text-slate-50 md:text-5xl">Products</h2>
-          {!isStaff && (
+          {isStaff ? (
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
+              Add and manage products assigned to your store.
+            </p>
+          ) : (
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
               Browse the catalog, compare deals, save favorites, and open full product details.
             </p>
@@ -302,58 +305,11 @@ function Products() {
       )}
 
       {!isStaff && dealProducts.length > 0 && !isLoading && (
-        <section className="mb-8 rounded-2xl bg-gradient-to-r from-red-50 via-amber-50 to-rose-50 p-6 shadow-sm">
-          <div className="mb-4">
-            <div>
-              <p className="page-eyebrow">Special Pricing</p>
-              <h3 className="display-heading mt-3 text-3xl text-slate-50">Deals & Offers</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                The strongest discounts in the store right now.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-5 overflow-x-auto pb-2">
-            {dealProducts.map((product) => (
-              <Link
-                key={product.product_id}
-                to={`/products/${product.product_id}`}
-                className="min-w-[260px] max-w-[260px] overflow-hidden rounded-2xl bg-white shadow transition hover:-translate-y-0.5 hover:shadow-lg"
-              >
-                <div className="relative h-40 bg-slate-100">
-                  {product.image ? (
-                    <img
-                      src={mediaUrl(product.image)}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                      No image
-                    </div>
-                  )}
-                  <span className="absolute left-3 top-3 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
-                    {product.discount_percent}% OFF
-                  </span>
-                </div>
-
-                <div className="p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    {product.brand_name}
-                  </p>
-                  <h4 className="mt-1 text-lg font-bold text-slate-900">{product.name}</h4>
-                  <p className="mt-1 text-sm text-slate-500">{product.store_name}</p>
-                  <div className="mt-4 flex items-center gap-2">
-                    <span className="text-sm text-slate-400 line-through">${product.price}</span>
-                    <span className="text-2xl font-bold text-red-600">
-                      ${product.discounted_price}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <DealProductStrip
+          products={dealProducts}
+          eyebrow="Special Pricing"
+          description="The strongest discounts in the store right now."
+        />
       )}
 
       {isStaff && (
@@ -433,7 +389,11 @@ function Products() {
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
-          placeholder="Search by product, brand, category, store or discount..."
+          placeholder={
+            isStaff
+              ? "Search your store's products by product, brand, category or discount..."
+              : "Search by product, brand, category, store or discount..."
+          }
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="premium-input min-w-[220px] flex-1 rounded-2xl px-4 py-3"
@@ -520,81 +480,80 @@ function Products() {
           )}
         </div>
       ) : isStaff ? (
-        <table className="section-panel w-full rounded-[1.75rem] shadow">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="p-3 text-left">Image</th>
-              <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Brand</th>
-              <th className="p-3 text-left">Category</th>
-              <th className="p-3 text-left">Price</th>
-              <th className="p-3 text-left">Stock</th>
-              <th className="p-3 text-left">Store</th>
-              <th className="p-3 text-left">Rating</th>
-              <th className="p-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedProducts.map((product) => (
-              <tr key={product.product_id} className="border-t">
-                <td className="p-3">
-                  {product.image ? (
-                    <img
-                      src={mediaUrl(product.image)}
-                      alt={product.name}
-                      className="h-12 w-12 cursor-pointer rounded object-cover transition hover:opacity-80"
-                      onClick={() => setPreviewImage(mediaUrl(product.image))}
-                    />
-                  ) : (
-                    <span className="text-sm text-slate-400">No image</span>
-                  )}
-                </td>
-                <td className="p-3">
-                  <span>{product.name}</span>
-                  {product.discount_name && (
-                    <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
-                      {product.discount_name}
-                    </span>
-                  )}
-                </td>
-                <td className="p-3">{product.brand_name}</td>
-                <td className="p-3">{product.category_names?.join(", ") || "-"}</td>
-                <td className="p-3">
-                  {product.discounted_price ? (
-                    <div>
-                      <span className="mr-2 text-sm text-slate-400 line-through">${product.price}</span>
-                      <span className="font-semibold text-red-600">${product.discounted_price}</span>
-                      <span className="ml-2 text-xs text-green-600">-{product.discount_percent}%</span>
-                    </div>
-                  ) : (
-                    <span>${product.price}</span>
-                  )}
-                </td>
-                <td className="p-3">{product.stock}</td>
-                <td className="p-3">{product.store_name}</td>
-                <td className="p-3">
-                  {product.average_rating ? `${product.average_rating}/5` : "No reviews"}
-                </td>
-                <td className="space-x-2 p-3">
-                  <button onClick={() => handleEdit(product)} className="rounded bg-yellow-400 px-3 py-1" type="button">Edit</button>
-                  <button onClick={() => handleDelete(product.product_id)} className="rounded bg-red-500 px-3 py-1 text-white" type="button">Delete</button>
-                </td>
+        <div className="section-panel overflow-hidden rounded-[1.75rem] shadow">
+          <table className="w-full">
+            <thead className="bg-gray-200">
+              <tr>
+                <th className="p-3 text-left">Image</th>
+                <th className="p-3 text-left">Name</th>
+                <th className="p-3 text-left">Brand</th>
+                <th className="p-3 text-left">Category</th>
+                <th className="p-3 text-left">Price</th>
+                <th className="p-3 text-left">Stock</th>
+                <th className="p-3 text-left">Rating</th>
+                <th className="p-3 text-left">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sortedProducts.map((product) => (
+                <tr key={product.product_id} className="border-t">
+                  <td className="p-3">
+                    {product.image ? (
+                      <img
+                        src={mediaUrl(product.image)}
+                        alt={product.name}
+                        className="h-12 w-12 cursor-pointer rounded object-cover transition hover:opacity-80"
+                        onClick={() => setPreviewImage(mediaUrl(product.image))}
+                      />
+                    ) : (
+                      <span className="text-sm text-slate-400">No image</span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <span>{product.name}</span>
+                    {product.discount_name && (
+                      <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                        {product.discount_name}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-3">{product.brand_name}</td>
+                  <td className="p-3">{product.category_names?.join(", ") || "-"}</td>
+                  <td className="p-3">
+                    {product.discounted_price ? (
+                      <div>
+                        <span className="mr-2 text-sm text-slate-400 line-through">${product.price}</span>
+                        <span className="font-semibold text-red-600">${product.discounted_price}</span>
+                        <span className="ml-2 text-xs text-green-600">-{product.discount_percent}%</span>
+                      </div>
+                    ) : (
+                      <span className="font-semibold text-amber-500">${product.price}</span>
+                    )}
+                  </td>
+                  <td className="p-3">{product.stock}</td>
+                  <td className="p-3">
+                    {product.average_rating ? `${product.average_rating}/5` : "No reviews"}
+                  </td>
+                  <td className="space-x-2 p-3">
+                    <button onClick={() => handleEdit(product)} className="rounded bg-yellow-400 px-3 py-1" type="button">Edit</button>
+                    <button onClick={() => handleDelete(product.product_id)} className="rounded bg-red-500 px-3 py-1 text-white" type="button">Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sortedProducts.map((product) => (
                 <CustomerProductCard
-                  key={product.product_id}
+                  key={product.listing_id}
                   product={product}
-                  quantity={getQuantity(product.product_id)}
-                  onIncrease={(productId, max) => changeQuantity(productId, 1, max)}
-                  onDecrease={(productId, max) => changeQuantity(productId, -1, max)}
+                  quantity={getQuantity(product.listing_id)}
+                  onIncrease={(_, max) => changeQuantity(product.listing_id, 1, max)}
+                  onDecrease={(_, max) => changeQuantity(product.listing_id, -1, max)}
                   onAddToCart={addToCart}
-                  onSelectWarehouse={handleWarehouseChange}
-                  selectedWarehouseId={getSelectedWarehouseId(product)}
+                  selectedWarehouseId={product.warehouse_id}
                   onToggleFavorite={toggleFavorite}
                   favoritePending={Boolean(favoriteLoadingIds[product.product_id])}
                 />

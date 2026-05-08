@@ -2,8 +2,25 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from discounts.utils import get_effective_price
+from discounts.utils import get_effective_price_for_base_price
+from inventory.models import Inventory
 from .models import Cart, CartItem
+
+
+def get_store_unit_price(product, warehouse):
+    inventory = (
+        Inventory.objects.filter(
+            product=product,
+            warehouse__store=warehouse.store,
+        )
+        .exclude(unit_price__isnull=True)
+        .select_related("warehouse", "warehouse__store")
+        .order_by("warehouse__location")
+        .first()
+    )
+    if inventory and inventory.unit_price is not None:
+        return inventory.unit_price
+    return product.price
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -32,10 +49,13 @@ class CartItemSerializer(serializers.ModelSerializer):
         ]
 
     def get_price(self, obj):
-        return f"{get_effective_price(obj.product):.2f}"
+        return f"{get_effective_price_for_base_price(obj.product, get_store_unit_price(obj.product, obj.warehouse)):.2f}"
 
     def get_subtotal(self, obj):
-        subtotal = Decimal(obj.quantity) * get_effective_price(obj.product)
+        subtotal = Decimal(obj.quantity) * get_effective_price_for_base_price(
+            obj.product,
+            get_store_unit_price(obj.product, obj.warehouse),
+        )
         return f"{subtotal:.2f}"
 
 
@@ -53,7 +73,11 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_total(self, obj):
         total = sum(
-            Decimal(item.quantity) * get_effective_price(item.product)
-            for item in obj.items.select_related("product")
+            Decimal(item.quantity)
+            * get_effective_price_for_base_price(
+                item.product,
+                get_store_unit_price(item.product, item.warehouse),
+            )
+            for item in obj.items.select_related("product", "warehouse", "warehouse__store")
         )
         return f"{total:.2f}"

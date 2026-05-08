@@ -4,11 +4,11 @@ import { Link } from "react-router-dom";
 import axios from "../utils/axiosInstance";
 import CustomerProductCard from "../components/CustomerProductCard";
 import { API_BASE_URL } from "../utils/api";
+import { flattenProductsToStoreListings } from "../utils/storeListings";
 
 function Wishlist() {
   const [favorites, setFavorites] = useState([]);
   const [quantities, setQuantities] = useState({});
-  const [selectedWarehouses, setSelectedWarehouses] = useState({});
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -32,15 +32,14 @@ function Wishlist() {
     loadFavorites();
   }, []);
 
-  const getQuantity = (productId) => quantities[productId] || 1;
-  const getSelectedWarehouseId = (product) =>
-    selectedWarehouses[product.product_id] || product.available_stores?.[0]?.warehouse_id || "";
+  const favoriteListings = flattenProductsToStoreListings(favorites);
+  const getQuantity = (listingId) => quantities[listingId] || 1;
 
-  const changeQuantity = (productId, delta, max) => {
+  const changeQuantity = (listingId, delta, max) => {
     setQuantities((prev) => {
-      const current = prev[productId] || 1;
+      const current = prev[listingId] || 1;
       const next = Math.min(Math.max(1, current + delta), max);
-      return { ...prev, [productId]: next };
+      return { ...prev, [listingId]: next };
     });
   };
 
@@ -52,7 +51,7 @@ function Wishlist() {
       await axios.post(`${API_BASE_URL}/api/cart/add/`, {
         product_id: productId,
         warehouse_id: warehouseId,
-        quantity: getQuantity(productId),
+        quantity: getQuantity(`${productId}:${warehouseId}`),
       });
       setMessage("Product added to cart.");
     } catch (err) {
@@ -106,18 +105,15 @@ function Wishlist() {
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {favorites.map((product) => (
+          {favoriteListings.map((product) => (
             <CustomerProductCard
-              key={product.product_id}
+              key={product.listing_id}
               product={product}
-              quantity={getQuantity(product.product_id)}
-              onIncrease={(productId, max) => changeQuantity(productId, 1, max)}
-              onDecrease={(productId, max) => changeQuantity(productId, -1, max)}
+              quantity={getQuantity(product.listing_id)}
+              onIncrease={(_, max) => changeQuantity(product.listing_id, 1, max)}
+              onDecrease={(_, max) => changeQuantity(product.listing_id, -1, max)}
               onAddToCart={addToCart}
-              onSelectWarehouse={(productId, warehouseId) =>
-                setSelectedWarehouses((prev) => ({ ...prev, [productId]: warehouseId }))
-              }
-              selectedWarehouseId={getSelectedWarehouseId(product)}
+              selectedWarehouseId={product.warehouse_id}
               onToggleFavorite={removeFavorite}
               favoritePending={Boolean(favoriteLoadingIds[product.product_id])}
             />
